@@ -40,7 +40,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="p-0 w-[88vw] max-w-[340px] h-[100dvh] left-0 top-0 translate-x-0 translate-y-0 rounded-none border-r">
+<DialogContent className="p-0 w-72 max-w-[85vw] h-[100dvh] left-0 top-0 translate-x-0 translate-y-0 rounded-none border-r">
                 <DialogHeader>
                   <VisuallyHidden>
                     <DialogTitle>Menú principal</DialogTitle>

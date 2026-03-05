@@ -105,7 +105,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     router.refresh()
   }
 
-  // cargar /users/me
   useEffect(() => {
     let cancelled = false
     setLoadingMe(true)
@@ -129,7 +128,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     }
   }, [])
 
-  // escuchar cambios del acting (sin reload)
   useEffect(() => {
     const sync = () => {
       setActingId(getActingId())
@@ -140,7 +138,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     return () => off()
   }, [])
 
-  // si eres líder y hay actingId -> buscar correo del acting (si no lo tienes guardado)
   useEffect(() => {
     let cancelled = false
 
@@ -198,7 +195,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const ActingIcon = actingLine?.icon
 
   return (
-    <aside className="w-72 border-r border-sidebar-border bg-sidebar flex flex-col h-[100dvh]">
+    <aside className="w-full md:w-72 border-r border-sidebar-border bg-sidebar flex flex-col h-[100dvh]">
       {/* Top */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
@@ -251,7 +248,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
           <p className="text-xs text-muted-foreground mt-1 truncate">{normalizeRoleLabel(me?.role)}</p>
 
-          {/* Acting SOLO si es líder */}
           {actingLine ? (
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground min-w-0">
