@@ -490,14 +490,14 @@ export function EstadisticasView() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value: number) => [formatNumber(Number(value)), "Cantidad"]}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
+<Tooltip
+  formatter={(value) => [formatNumber(Number(value ?? 0)), "Cantidad"]}
+  contentStyle={{
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+  }}
+/>
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
