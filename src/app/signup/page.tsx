@@ -4,9 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
 
+function onlyDigitsMax10(v: string) {
+  return (v ?? "").replace(/\D/g, "").slice(0, 10);
+}
+
 export default function SignupPage() {
   const router = useRouter();
+
+  // OJO:
+  // visualmente este campo será "Nombre completo",
+  // pero en el request seguirá viajando como "email"
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [numeroTelefonico, setNumeroTelefonico] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +25,26 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!email.trim()) {
+      setError("El nombre completo es obligatorio");
+      return;
+    }
+
+    if (!username.trim()) {
+      setError("El username es obligatorio");
+      return;
+    }
+
+    if (!numeroTelefonico.trim()) {
+      setError("El número telefónico es obligatorio");
+      return;
+    }
+
+    if (numeroTelefonico.length !== 10) {
+      setError("El número telefónico debe tener exactamente 10 dígitos");
+      return;
+    }
 
     if (password !== confirm) {
       setError("Las contraseñas no coinciden");
@@ -27,21 +57,29 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: email.trim(), // <- aquí realmente va el nombre completo
+          username: username.trim(),
+          numero_telefonico: numeroTelefonico,
           password,
           confirm_password: confirm,
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { message: text };
+      }
+
       if (!res.ok) {
         setError(data.message ?? "Error al crear la cuenta");
       } else {
-        // guardar token sencillo
         if (data.access_token) {
           localStorage.setItem("pulso_token", data.access_token);
         }
-        router.push("/prospectos"); // cámbialo a /prospectos o donde tengas tu dashboard
+        router.push("/prospectos");
       }
     } catch (err) {
       console.error(err);
@@ -50,6 +88,9 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  const numeroInvalido =
+    numeroTelefonico.length > 0 && numeroTelefonico.length !== 10;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -63,9 +104,11 @@ export default function SignupPage() {
               Pulso CRM Profesional
             </span>
           </div>
+
           <h1 className="text-2xl font-semibold tracking-tight">
             Crear cuenta de líder
           </h1>
+
           <p className="text-sm text-muted-foreground">
             Esta cuenta será el líder y podrá crear colaboradores más adelante.
           </p>
@@ -74,16 +117,50 @@ export default function SignupPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Correo electrónico
+              Nombre completo
             </label>
             <input
-              type="email"
+              type="text"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="lider@ejemplo.com"
+              placeholder="Ej: Juan Pérez López"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Username
+            </label>
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="Ej: juanperez"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Número telefónico
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={numeroTelefonico}
+              onChange={(e) => setNumeroTelefonico(onlyDigitsMax10(e.target.value))}
+              className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="6861234567"
+            />
+            {numeroInvalido && (
+              <p className="text-xs text-destructive">
+                Debe tener exactamente 10 dígitos.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

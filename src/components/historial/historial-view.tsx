@@ -5,9 +5,8 @@ import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { HistoryIcon, Search, User, TrendingUp, ChevronRight } from "lucide-react"
+import { HistoryIcon, Search, User } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -19,6 +18,20 @@ type ProspectDTO = {
   observaciones?: string | null
   estado: string
   created_at: string
+}
+
+type ProspectLite = {
+  id: number
+  nombre: string
+  numero: string
+  estado: string
+  observaciones?: string | null
+}
+
+type UserDTO = {
+  id: number
+  email: string
+  role?: string
 }
 
 type ProspectHistResponse = {
@@ -35,6 +48,8 @@ type HistItem = {
   created_at: string
   prospect?: { id: number; nombre: string } | null
   user?: { id: number; email: string } | null
+  actor?: { id: number; email: string } | null
+  effective?: { id: number; email: string } | null
   tipo?: string | null
   monto?: number | null
 }
@@ -53,6 +68,7 @@ function mapTipo(accion: string) {
   if (accion === "agendar_cita") return "cita"
   if (accion === "programar_llamada") return "llamada"
   if (accion === "rechazado") return "rechazo"
+  if (accion === "vendido") return "venta"
   if (accion === "sin_respuesta") return "cambio"
   return "cambio"
 }
@@ -65,12 +81,17 @@ function prettyAccion(accion: string) {
     sin_respuesta: "Marcado sin respuesta",
     rechazado: "Marcado como rechazado",
     observaciones: "Se agregaron observaciones",
+    vendido: "Marcado como vendido",
+    anexar: "Prospecto anexado",
+    recuperar: "Prospecto recuperado",
+    iniciar_seguimiento: "Seguimiento iniciado",
+    pausar_seguimiento: "Seguimiento pausado",
   }
   return m[accion] ?? accion
 }
 
-// ✅ NUEVO: tomar "acting as" desde localStorage (para mandarlo en headers)
 function getActingAsUserId(): string | null {
+  if (typeof window === "undefined") return null
   const v = localStorage.getItem("pulso_acting_as_user_id")
   if (!v) return null
   const n = Number(v)
@@ -79,7 +100,7 @@ function getActingAsUserId(): string | null {
 }
 
 async function apiGet(path: string) {
-  const token = localStorage.getItem("pulso_token")
+  const token = typeof window !== "undefined" ? localStorage.getItem("pulso_token") : null
   const actingAs = getActingAsUserId()
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -89,8 +110,19 @@ async function apiGet(path: string) {
     },
     cache: "no-store",
   })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+
+  let data: any = null
+  try {
+    data = await res.json()
+  } catch {
+    data = null
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Error en la petición")
+  }
+
+  return data
 }
 
 function formatFecha(iso: string) {
@@ -119,6 +151,10 @@ function niceDetalle(item: HistItem) {
     return `📞 ${item.detalle}`
   }
 
+  if (item.accion === "vendido") {
+    return `💰 ${item.detalle}`
+  }
+
   return item.detalle
 }
 
@@ -126,41 +162,27 @@ export function HistorialView() {
   const [searchTerm, setSearchTerm] = useState("")
   const [searchProspecto, setSearchProspecto] = useState("")
   const [searchUsuario, setSearchUsuario] = useState("")
-  const [selectedProspecto, setSelectedProspecto] = useState<string>("")
-  const [selectedUsuario, setSelectedUsuario] = useState<string>("")
 
   const [historialGeneral, setHistorialGeneral] = useState<HistItem[]>([])
   const [loadingGeneral, setLoadingGeneral] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
 
-  const [usuarios, setUsuarios] = useState<{ id: number; email: string }[]>([])
+  const [usuarios, setUsuarios] = useState<UserDTO[]>([])
   const [loadingUsuarios, setLoadingUsuarios] = useState(false)
+
+  const [prospectos, setProspectos] = useState<ProspectLite[]>([])
+  const [loadingProspects, setLoadingProspects] = useState(false)
 
   const [openUserId, setOpenUserId] = useState<number | null>(null)
   const [userHistorial, setUserHistorial] = useState<HistItem[]>([])
   const [loadingUserModal, setLoadingUserModal] = useState(false)
   const [errorUserModal, setErrorUserModal] = useState<string | null>(null)
 
-  const [loadingProspects, setLoadingProspects] = useState(false)
-
-  const [historialPorProspecto, setHistorialPorProspecto] = useState<HistItem[]>([])
-  const [loadingPorProspecto, setLoadingPorProspecto] = useState(false)
-  const [errorPorProspecto, setErrorPorProspecto] = useState<string | null>(null)
-
-  const [historialPorUsuario, setHistorialPorUsuario] = useState<HistItem[]>([])
-  const [loadingPorUsuario, setLoadingPorUsuario] = useState(false)
-  const [errorPorUsuario, setErrorPorUsuario] = useState<string | null>(null)
-
-  // modal
   const [openProspectId, setOpenProspectId] = useState<number | null>(null)
   const [modalData, setModalData] = useState<ProspectHistResponse | null>(null)
   const [loadingModal, setLoadingModal] = useState(false)
   const [errorModal, setErrorModal] = useState<string | null>(null)
 
-  type ProspectLite = { id: number; nombre: string; numero: string; estado: string; observaciones?: string | null }
-  const [prospectos, setProspectos] = useState<ProspectLite[]>([])
-
-  // ✅ Fetch General (DB)
   useEffect(() => {
     let cancelled = false
 
@@ -170,24 +192,14 @@ export function HistorialView() {
     const q = searchTerm.trim()
     const qs = q ? `?q=${encodeURIComponent(q)}&limit=50` : `?limit=50`
 
-    // 🔧 CAMBIO: antes era fetch directo, ahora usa apiGet para meter headers (Authorization + X-Acting-As-User)
     apiGet(`/history/${qs}`)
       .then((data) => {
-        if (!cancelled) {
-          setHistorialGeneral(data.historial || [])
-
-          // DEBUG (lo dejo tal cual)
-          const first = (data.historial || [])[0]
-          if (first) {
-            console.log("RAW created_at:", first.created_at)
-            console.log("RAW detalle:", first.detalle)
-            console.log("Date().toString():", new Date(first.created_at).toString())
-            console.log("Date().toISOString():", new Date(first.created_at).toISOString())
-          }
-        }
+        if (cancelled) return
+        setHistorialGeneral(data.historial || [])
       })
       .catch((e) => {
-        if (!cancelled) setErrorGeneral(e.message || "Error cargando historial")
+        if (cancelled) return
+        setErrorGeneral(e.message || "Error cargando historial")
       })
       .finally(() => {
         if (!cancelled) setLoadingGeneral(false)
@@ -202,8 +214,12 @@ export function HistorialView() {
     let cancelled = false
     setLoadingProspects(true)
 
-    apiGet(`/prospects/?limit=2000`)
+    const q = searchProspecto.trim()
+    const qs = q ? `?q=${encodeURIComponent(q)}&limit=2000` : `?limit=2000`
+
+    apiGet(`/history/prospects${qs}`)
       .then((data) => {
+        if (cancelled) return
         const arr = (data.prospectos || []).map((p: any) => ({
           id: p.id,
           nombre: p.nombre,
@@ -214,7 +230,8 @@ export function HistorialView() {
         setProspectos(arr)
       })
       .catch(() => {
-        // si falla no pasa nada, solo no habrá options
+        if (cancelled) return
+        setProspectos([])
       })
       .finally(() => {
         if (!cancelled) setLoadingProspects(false)
@@ -223,7 +240,7 @@ export function HistorialView() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [searchProspecto])
 
   useEffect(() => {
     let cancelled = false
@@ -232,9 +249,12 @@ export function HistorialView() {
     apiGet(`/users/?limit=500`)
       .then((data) => {
         if (cancelled) return
-        setUsuarios(data.usuarios || [])
+        setUsuarios(data.users || [])
       })
-      .catch(() => {})
+      .catch(() => {
+        if (cancelled) return
+        setUsuarios([])
+      })
       .finally(() => {
         if (!cancelled) setLoadingUsuarios(false)
       })
@@ -246,94 +266,9 @@ export function HistorialView() {
 
   useEffect(() => {
     let cancelled = false
-    if (!selectedProspecto) {
-      setHistorialPorProspecto([])
-      return
-    }
-
-    setLoadingPorProspecto(true)
-    setErrorPorProspecto(null)
-
-    apiGet(`/prospects/${selectedProspecto}/historial`)
-      .then((data: ProspectHistResponse) => {
-        if (cancelled) return
-        setHistorialPorProspecto(data.historial || [])
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setErrorPorProspecto(e.message || "Error cargando historial del prospecto")
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingPorProspecto(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedProspecto])
-
-  const usuariosOptions = useMemo(() => {
-    const m = new Map<number, string>()
-    for (const it of historialGeneral) {
-      if (it.user?.id && it.user.email) m.set(it.user.id, it.user.email)
-    }
-    return Array.from(m.entries()).map(([id, email]) => ({ id, email }))
-  }, [historialGeneral])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!selectedUsuario) {
-      setHistorialPorUsuario([])
-      return
-    }
-
-    setLoadingPorUsuario(true)
-    setErrorPorUsuario(null)
-
-    const qs = `?user_id=${encodeURIComponent(selectedUsuario)}&limit=100`
-
-    apiGet(`/history/${qs}`)
-      .then((data) => {
-        if (cancelled) return
-        setHistorialPorUsuario(data.historial || [])
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setErrorPorUsuario(e.message || "Error cargando historial del usuario")
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingPorUsuario(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedUsuario])
-
-  const historialPorProspectoFiltrado = useMemo(() => {
-    const q = searchProspecto.trim().toLowerCase()
-    if (!q) return historialPorProspecto
-    return historialPorProspecto.filter((it) =>
-      (prettyAccion(it.accion) + " " + (it.user?.email ?? "") + " " + (it.detalle ?? "")).toLowerCase().includes(q)
-    )
-  }, [historialPorProspecto, searchProspecto])
-
-  const historialPorUsuarioFiltrado = useMemo(() => {
-    const q = searchUsuario.trim().toLowerCase()
-    if (!q) return historialPorUsuario
-    return historialPorUsuario.filter((it) =>
-      (prettyAccion(it.accion) + " " + (it.prospect?.nombre ?? "") + " " + (it.detalle ?? "")).toLowerCase().includes(q)
-    )
-  }, [historialPorUsuario, searchUsuario])
-
-  function openProspectModal(prospectId: number) {
-    setOpenProspectId(prospectId)
-  }
-
-  useEffect(() => {
-    let cancelled = false
     if (!openUserId) {
       setUserHistorial([])
+      setErrorUserModal(null)
       return
     }
 
@@ -346,7 +281,8 @@ export function HistorialView() {
         setUserHistorial(data.historial || [])
       })
       .catch((e) => {
-        if (!cancelled) setErrorUserModal(e.message || "Error cargando actividad")
+        if (cancelled) return
+        setErrorUserModal(e.message || "Error cargando actividad")
       })
       .finally(() => {
         if (!cancelled) setLoadingUserModal(false)
@@ -361,13 +297,14 @@ export function HistorialView() {
     let cancelled = false
     if (!openProspectId) {
       setModalData(null)
+      setErrorModal(null)
       return
     }
 
     setLoadingModal(true)
     setErrorModal(null)
 
-    apiGet(`/prospects/${openProspectId}/historial`)
+    apiGet(`/history/prospects/${openProspectId}`)
       .then((data: ProspectHistResponse) => {
         if (cancelled) return
         setModalData(data)
@@ -385,8 +322,17 @@ export function HistorialView() {
     }
   }, [openProspectId])
 
-  // Por ahora, usamos general como data principal en “general”
   const historialFiltrado = useMemo(() => historialGeneral, [historialGeneral])
+
+  const usuariosFiltrados = useMemo(() => {
+    const q = searchUsuario.trim().toLowerCase()
+    if (!q) return usuarios
+    return usuarios.filter((u) => u.email.toLowerCase().includes(q))
+  }, [usuarios, searchUsuario])
+
+  function openProspectModal(prospectId: number) {
+    setOpenProspectId(prospectId)
+  }
 
   return (
     <AppLayout>
@@ -403,7 +349,6 @@ export function HistorialView() {
             <TabsTrigger value="usuario">Por Usuario</TabsTrigger>
           </TabsList>
 
-          {/* General History */}
           <TabsContent value="general" className="space-y-4">
             <Card>
               <CardHeader>
@@ -435,6 +380,7 @@ export function HistorialView() {
               <div className="space-y-4">
                 {historialFiltrado.map((item) => {
                   const tipo = item.tipo ?? mapTipo(item.accion)
+
                   return (
                     <button
                       key={item.id}
@@ -462,7 +408,9 @@ export function HistorialView() {
                               <p className="text-sm text-muted-foreground mb-2">
                                 Prospecto:{" "}
                                 {item.prospect?.id ? (
-                                  <span className="text-foreground underline underline-offset-4">{item.prospect?.nombre}</span>
+                                  <span className="text-foreground underline underline-offset-4">
+                                    {item.prospect.nombre}
+                                  </span>
                                 ) : (
                                   <span className="text-foreground">—</span>
                                 )}
@@ -474,7 +422,9 @@ export function HistorialView() {
                                 <span>{formatFecha(item.created_at)}</span>
                               </div>
 
-                              {niceDetalle(item) ? <p className="mt-2 text-xs text-muted-foreground">{niceDetalle(item)}</p> : null}
+                              {niceDetalle(item) ? (
+                                <p className="mt-2 text-xs text-muted-foreground">{niceDetalle(item)}</p>
+                              ) : null}
                             </div>
                           </div>
                         </CardContent>
@@ -485,7 +435,9 @@ export function HistorialView() {
 
                 {historialFiltrado.length === 0 && !loadingGeneral && !errorGeneral ? (
                   <Card>
-                    <CardContent className="p-6 text-sm text-muted-foreground">No hay movimientos todavía.</CardContent>
+                    <CardContent className="p-6 text-sm text-muted-foreground">
+                      No hay movimientos todavía.
+                    </CardContent>
                   </Card>
                 ) : null}
               </div>
@@ -516,34 +468,28 @@ export function HistorialView() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {prospectos
-                  .filter((p) => {
-                    const q = searchProspecto.trim().toLowerCase()
-                    if (!q) return true
-                    return `${p.nombre} ${p.numero}`.toLowerCase().includes(q)
-                  })
-                  .map((p) => (
-                    <button key={p.id} onClick={() => openProspectModal(p.id)} className="text-left">
-                      <Card className="hover:border-primary/50 transition-colors">
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="font-semibold truncate">{p.nombre}</div>
-                            <Badge variant="secondary" className="shrink-0">
-                              {p.estado}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground truncate">{p.numero}</div>
-                          {p.observaciones ? (
-                            <div className="text-xs text-muted-foreground line-clamp-2">{p.observaciones}</div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">Sin notas</div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </button>
-                  ))}
+                {prospectos.map((p) => (
+                  <button key={p.id} onClick={() => openProspectModal(p.id)} className="text-left">
+                    <Card className="hover:border-primary/50 transition-colors">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="font-semibold truncate">{p.nombre}</div>
+                          <Badge variant="secondary" className="shrink-0">
+                            {p.estado}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground truncate">{p.numero}</div>
+                        {p.observaciones ? (
+                          <div className="text-xs text-muted-foreground line-clamp-2">{p.observaciones}</div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">Sin notas</div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </button>
+                ))}
 
-                {prospectos.length === 0 ? (
+                {prospectos.length === 0 && !loadingProspects ? (
                   <Card>
                     <CardContent className="p-6 text-sm text-muted-foreground">No hay prospectos.</CardContent>
                   </Card>
@@ -576,43 +522,44 @@ export function HistorialView() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {usuarios
-                  .filter((u) => {
-                    const q = searchUsuario.trim().toLowerCase()
-                    if (!q) return true
-                    return u.email.toLowerCase().includes(q)
-                  })
-                  .map((u) => (
-                    <button key={u.id} onClick={() => setOpenUserId(u.id)} className="text-left">
-                      <Card className="hover:border-primary/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted">
-                              <User className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-semibold truncate">{u.email}</div>
-                              <div className="text-xs text-muted-foreground">Ver actividad</div>
-                            </div>
+                {usuariosFiltrados.map((u) => (
+                  <button key={u.id} onClick={() => setOpenUserId(u.id)} className="text-left">
+                    <Card className="hover:border-primary/50 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-muted">
+                            <User className="h-4 w-4" />
                           </div>
-                        </CardContent>
-                      </Card>
-                    </button>
-                  ))}
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">{u.email}</div>
+                            <div className="text-xs text-muted-foreground">Ver actividad</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </button>
+                ))}
+
+                {usuariosFiltrados.length === 0 && !loadingUsuarios ? (
+                  <Card>
+                    <CardContent className="p-6 text-sm text-muted-foreground">No hay usuarios.</CardContent>
+                  </Card>
+                ) : null}
               </div>
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Modal Prospecto */}
       <Dialog open={!!openProspectId} onOpenChange={(v) => !v && setOpenProspectId(null)}>
         <DialogContent className="w-[95vw] max-w-3xl p-0">
           <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
             <div className="p-4 sm:p-6 border-b">
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">Prospecto</DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">Detalle + movimientos</DialogDescription>
+                <DialogDescription className="text-xs sm:text-sm">
+                  Detalle + movimientos
+                </DialogDescription>
               </DialogHeader>
             </div>
 
@@ -639,7 +586,9 @@ export function HistorialView() {
                           {modalData.prospect.observaciones ? (
                             <div className="text-sm">
                               <div className="font-medium mb-1">Notas</div>
-                              <div className="text-muted-foreground whitespace-pre-wrap">{modalData.prospect.observaciones}</div>
+                              <div className="text-muted-foreground whitespace-pre-wrap">
+                                {modalData.prospect.observaciones}
+                              </div>
                             </div>
                           ) : (
                             <div className="text-sm text-muted-foreground">Sin notas</div>
@@ -663,12 +612,16 @@ export function HistorialView() {
                                   <div className="text-xs text-muted-foreground">
                                     {h.user?.email ?? "—"} • {formatFecha(h.created_at)}
                                   </div>
-                                  {niceDetalle(h) ? <div className="text-xs text-muted-foreground mt-1">{niceDetalle(h)}</div> : null}
+                                  {niceDetalle(h) ? (
+                                    <div className="text-xs text-muted-foreground mt-1">{niceDetalle(h)}</div>
+                                  ) : null}
                                 </div>
                               </div>
                             ))}
 
-                            {modalData.historial.length === 0 ? <div className="text-sm text-muted-foreground">Sin movimientos.</div> : null}
+                            {modalData.historial.length === 0 ? (
+                              <div className="text-sm text-muted-foreground">Sin movimientos.</div>
+                            ) : null}
                           </div>
                         </CardContent>
                       </Card>
@@ -681,14 +634,15 @@ export function HistorialView() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Usuario */}
       <Dialog open={!!openUserId} onOpenChange={(v) => !v && setOpenUserId(null)}>
         <DialogContent className="w-[95vw] max-w-3xl p-0">
           <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
             <div className="p-4 sm:p-6 border-b">
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">Actividad del usuario</DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">Movimientos realizados</DialogDescription>
+                <DialogDescription className="text-xs sm:text-sm">
+                  Movimientos realizados
+                </DialogDescription>
               </DialogHeader>
             </div>
 
@@ -707,7 +661,9 @@ export function HistorialView() {
                           role="button"
                           tabIndex={item.prospect?.id ? 0 : -1}
                           aria-disabled={!item.prospect?.id}
-                          className={`w-full text-left ${item.prospect?.id ? "cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
+                          className={`w-full text-left ${
+                            item.prospect?.id ? "cursor-pointer" : "opacity-60 cursor-not-allowed"
+                          }`}
                           onClick={() => item.prospect?.id && openProspectModal(item.prospect.id)}
                           onKeyDown={(e) => {
                             if (!item.prospect?.id) return
@@ -725,7 +681,9 @@ export function HistorialView() {
                                   <div className="text-xs text-muted-foreground">
                                     Prospecto: {item.prospect?.nombre ?? "—"} • {formatFecha(item.created_at)}
                                   </div>
-                                  {niceDetalle(item) ? <div className="text-xs text-muted-foreground mt-1">{niceDetalle(item)}</div> : null}
+                                  {niceDetalle(item) ? (
+                                    <div className="text-xs text-muted-foreground mt-1">{niceDetalle(item)}</div>
+                                  ) : null}
                                 </div>
                               </div>
                             </CardContent>
@@ -735,7 +693,9 @@ export function HistorialView() {
 
                       {userHistorial.length === 0 ? (
                         <Card>
-                          <CardContent className="p-6 text-sm text-muted-foreground">Sin actividad.</CardContent>
+                          <CardContent className="p-6 text-sm text-muted-foreground">
+                            Sin actividad.
+                          </CardContent>
                         </Card>
                       ) : null}
                     </>

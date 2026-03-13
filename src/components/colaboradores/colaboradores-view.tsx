@@ -413,16 +413,6 @@ export function ColaboradoresView() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
-                      <div>
-                        <p className="text-2xl font-bold text-foreground">{colaborador.prospectos ?? 0}</p>
-                        <p className="text-xs text-muted-foreground">Prospectos</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-green-500">{colaborador.ventas ?? 0}</p>
-                        <p className="text-xs text-muted-foreground">Ventas</p>
-                      </div>
-                    </div>
 
                     {colaborador.created_at ? (
                       <div className="mt-3 text-xs text-muted-foreground">Creado: {formatFechaCorta(colaborador.created_at)}</div>

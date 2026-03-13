@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon } from "lucide-react"
 import { ProspectoDialog } from "./prospecto-dialog"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
-
+import { ProspectosGlobalSearch } from "./prospectos-global-search"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8085/api"
 
 type Prospecto = {
@@ -20,6 +20,8 @@ type Prospecto = {
   estado: string
   recomendado_por_id?: number | null
   recomendado_por_nombre?: string | null
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion?: string | null
 }
 
 type ProspectStats = {
@@ -175,12 +177,20 @@ export function ProspectosView() {
     <AppLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-2">Prospectos</h1>
-          <p className="text-muted-foreground text-sm sm:text-lg">
-            Gestiona y da seguimiento a tus prospectos
-          </p>
-        </div>
+<div className="mb-6 sm:mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-2">Prospectos</h1>
+    <p className="text-muted-foreground text-sm sm:text-lg">
+      Gestiona y da seguimiento a tus prospectos
+    </p>
+  </div>
+
+  <ProspectosGlobalSearch
+    onActionCompleted={() => {
+      loadProspects()
+    }}
+  />
+</div>
 
         {/* Stats cards responsive */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -314,47 +324,58 @@ export function ProspectosView() {
                 "
               >
                 <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <User className="h-5 w-5 text-primary" />
-                        </div>
+<div className="flex items-start justify-between gap-3 sm:gap-4">
+  <div className="flex-1 min-w-0">
+    <div className="flex items-start gap-3 mb-3">
+      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <User className="h-5 w-5 text-primary" />
+      </div>
 
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1 truncate">
-                            {prospecto.nombre}
-                          </h3>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="font-mono text-xs">
-                              <PhoneIcon className="h-3 w-3 mr-1" />
-                              {prospecto.numero}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1 truncate">
+          {prospecto.nombre}
+        </h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="font-mono text-xs">
+            <PhoneIcon className="h-3 w-3 mr-1" />
+            {prospecto.numero}
+          </Badge>
+        </div>
+      </div>
+    </div>
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground pl-[52px]">
-                        <UsersIcon className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">
-                          Recomendado por:{" "}
-                          <span className="text-foreground font-medium">
-                            {prospecto.recomendado_por_nombre ?? "—"}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
+    <div className="space-y-2 pl-[52px]">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <UsersIcon className="h-4 w-4 flex-shrink-0" />
+        <span className="truncate">
+          Recomendado por:{" "}
+          <span className="text-foreground font-medium">
+            {prospecto.recomendado_por_nombre ?? "—"}
+          </span>
+        </span>
+      </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSelectedProspecto(prospecto)}
-                      className="flex-shrink-0 opacity-100"
-                      aria-label="Acciones"
-                    >
-                      <MoreVertical className="h-5 w-5" />
-                    </Button>
-                  </div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="flex-shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground">
+          Forma de obtención
+        </span>
+        <span className="truncate text-foreground font-medium">
+          {prospecto.forma_obtencion ?? "—"}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={() => setSelectedProspecto(prospecto)}
+    className="flex-shrink-0 opacity-100"
+    aria-label="Acciones"
+  >
+    <MoreVertical className="h-5 w-5" />
+  </Button>
+</div>
                 </CardContent>
               </Card>
             ))

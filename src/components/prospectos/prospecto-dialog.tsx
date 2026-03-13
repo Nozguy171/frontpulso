@@ -21,6 +21,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { API_BASE_URL } from "@/lib/api"
 
 type Colaborador = {
@@ -43,6 +44,8 @@ type RecomendadorItem = {
   nombre: string
   numero: string
 }
+
+type FormaObtencion = "encuesta" | "cita_en_frio" | "otro" | ""
 
 interface ProspectoDialogProps {
   open: boolean
@@ -67,12 +70,27 @@ function onlyDigitsMax10(v: string) {
   return (v ?? "").replace(/\D/g, "").slice(0, 10)
 }
 
+function getFormaObtencionTexto(
+  tipo: FormaObtencion,
+  otroTexto: string
+): string | undefined {
+  if (tipo === "encuesta") return "Encuesta"
+  if (tipo === "cita_en_frio") return "Cita en frío"
+  if (tipo === "otro") {
+    const clean = otroTexto.trim()
+    return clean || undefined
+  }
+  return undefined
+}
+
 export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialogProps) {
   const [formData, setFormData] = useState({
     nombre: "",
     numero: "",
     observaciones: "",
     recomendadoPorId: "",
+    formaObtencionTipo: "" as FormaObtencion,
+    formaObtencionOtro: "",
   })
 
   const [loading, setLoading] = useState(false)
@@ -81,7 +99,6 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
   const [assignedToUserId, setAssignedToUserId] = useState<string>("")
 
-  // ✅ buscador recomendador
   const [recoQuery, setRecoQuery] = useState("")
   const [recoLoading, setRecoLoading] = useState(false)
   const [recoResults, setRecoResults] = useState<RecomendadorItem[]>([])
@@ -107,9 +124,33 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
   const showAssignSelect = leaderLike
   const mustChooseAssignee = leaderLike && !isActingAs
 
-  // --- phone validation ---
   const phoneDigits = formData.numero
   const phoneOk = phoneDigits.length === 10
+
+  const formaObtencionOk =
+    !!formData.formaObtencionTipo &&
+    (formData.formaObtencionTipo !== "otro" || !!formData.formaObtencionOtro.trim())
+
+  const assignableUsers = useMemo(() => {
+    const map = new Map<number, Colaborador>()
+
+    if (me?.id) {
+      map.set(me.id, {
+        id: me.id,
+        email: me.email,
+        nombre: me.nombre,
+        role: me.role,
+      })
+    }
+
+    for (const c of colaboradores) {
+      if (!map.has(c.id)) {
+        map.set(c.id, c)
+      }
+    }
+
+    return Array.from(map.values())
+  }, [me, colaboradores])
 
   useEffect(() => {
     if (!open) return
@@ -201,7 +242,6 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     loadCols()
   }, [open, leaderLike, token, actingAs])
 
-  // ✅ Buscar recomendadores (debounce)
   useEffect(() => {
     if (!open) return
     const q = recoQuery.trim()
@@ -225,6 +265,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             },
           }
         )
+
         const data = await res.json()
         if (!res.ok) throw new Error(data?.message ?? "Error buscando recomendadores")
 
@@ -257,6 +298,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     if (loading) return false
     if (!formData.nombre.trim()) return false
     if (!phoneOk) return false
+    if (!formaObtencionOk) return false
 
     if (collaborator) return true
     if (leaderLike) {
@@ -265,7 +307,16 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     }
 
     return true
-  }, [loading, formData.nombre, phoneOk, collaborator, leaderLike, mustChooseAssignee, assignedToUserId])
+  }, [
+    loading,
+    formData.nombre,
+    phoneOk,
+    formaObtencionOk,
+    collaborator,
+    leaderLike,
+    mustChooseAssignee,
+    assignedToUserId,
+  ])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -283,6 +334,11 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         if (Number.isFinite(n) && n > 0) assignee = n
       }
 
+      const formaObtencion = getFormaObtencionTexto(
+        formData.formaObtencionTipo,
+        formData.formaObtencionOtro
+      )
+
       const res = await fetch(`${API_BASE_URL}/prospects/`, {
         method: "POST",
         headers: {
@@ -292,10 +348,14 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         },
         body: JSON.stringify({
           nombre: formData.nombre.trim(),
-          numero: formData.numero, // ✅ solo dígitos y max 10
+          numero: formData.numero,
           observaciones: formData.observaciones?.trim() || undefined,
-          recomendado_por_id: formData.recomendadoPorId ? Number(formData.recomendadoPorId) : undefined,
+          recomendado_por_id: formData.recomendadoPorId
+            ? Number(formData.recomendadoPorId)
+            : undefined,
           assigned_to_user_id: assignee,
+          forma_obtencion_tipo: formData.formaObtencionTipo || undefined,
+          forma_obtencion: formaObtencion,
         }),
       })
 
@@ -308,18 +368,18 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
       onSubmit(data.prospecto)
 
-      // reset form
       setFormData({
         nombre: "",
         numero: "",
         observaciones: "",
         recomendadoPorId: "",
+        formaObtencionTipo: "",
+        formaObtencionOtro: "",
       })
       setRecoSelected(null)
       setRecoQuery("")
       setRecoResults([])
 
-      // reset selector
       if (leaderLike && isActingAs && actingAs) setAssignedToUserId(String(actingAs))
       else if (leaderLike && !isActingAs) setAssignedToUserId("")
       else if (collaborator && myUserId) setAssignedToUserId(String(myUserId))
@@ -335,10 +395,10 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
   const phoneHint =
     phoneDigits.length === 0
-      ? "Ingresa 10 dígitos."
+      ? ""
       : phoneOk
         ? "Número válido ✅"
-        : `Te faltan ${10 - phoneDigits.length} dígitos (10 en total).`
+        : ``
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -349,7 +409,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             {collaborator
               ? "Se asignará automáticamente a tu cuenta."
               : leaderLike && !isActingAs
-                ? "Selecciona a qué colaborador se asignará."
+                ? "Selecciona a quién se asignará."
                 : leaderLike && isActingAs
                   ? "Puedes cambiar a quién se asigna (preseleccionado al usuario con el que estás actuando)."
                   : ""}
@@ -363,17 +423,21 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                 <Label>Asignar a *</Label>
                 <Select value={assignedToUserId} onValueChange={setAssignedToUserId}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona colaborador..." />
+                    <SelectValue placeholder="Selecciona usuario..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {colaboradores.length === 0 ? (
+                    {assignableUsers.length === 0 ? (
                       <SelectItem value="__empty" disabled>
-                        No hay colaboradores
+                        No hay usuarios disponibles
                       </SelectItem>
                     ) : (
-                      colaboradores.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.nombre ? `${c.nombre} — ${c.email}` : c.email}
+                      assignableUsers.map((u) => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.id === myUserId
+                            ? `${u.nombre ? `${u.nombre} — ${u.email}` : u.email} (yo)`
+                            : u.nombre
+                              ? `${u.nombre} — ${u.email}`
+                              : u.email}
                         </SelectItem>
                       ))
                     )}
@@ -382,7 +446,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
                 {mustChooseAssignee && !assignedToUserId && (
                   <p className="text-xs text-muted-foreground">
-                    Debes seleccionar un colaborador para continuar.
+                    Debes seleccionar un usuario para continuar.
                   </p>
                 )}
               </div>
@@ -416,7 +480,56 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               </p>
             </div>
 
-            {/* ✅ Recomendado por con buscador */}
+            <div className="grid gap-2">
+              <Label>Forma de obtención *</Label>
+
+              <RadioGroup
+                value={formData.formaObtencionTipo}
+                onValueChange={(value: FormaObtencion) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    formaObtencionTipo: value,
+                    formaObtencionOtro: value === "otro" ? prev.formaObtencionOtro : "",
+                  }))
+                }
+                className="flex flex-wrap items-center gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="encuesta" id="forma-encuesta" />
+                  <Label htmlFor="forma-encuesta" className="cursor-pointer font-normal">
+                    Encuesta
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cita_en_frio" id="forma-cita-en-frio" />
+                  <Label htmlFor="forma-cita-en-frio" className="cursor-pointer font-normal">
+                    Cita en frío
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="otro" id="forma-otro" />
+                  <Label htmlFor="forma-otro" className="cursor-pointer font-normal">
+                    Otro
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {formData.formaObtencionTipo === "otro" && (
+                <Input
+                  placeholder="Escribe la forma de obtención..."
+                  value={formData.formaObtencionOtro}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      formaObtencionOtro: e.target.value,
+                    }))
+                  }
+                />
+              )}
+            </div>
+
             <div className="grid gap-2">
               <Label>Recomendado por (opcional)</Label>
 
@@ -460,10 +573,10 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                             key={p.id}
                             type="button"
                             onClick={() => selectRecomendador(p)}
-                            className="w-full text-left px-3 py-2 hover:bg-muted/40 border-b last:border-b-0"
+                            className="w-full border-b px-3 py-2 text-left hover:bg-muted/40 last:border-b-0"
                           >
                             <div className="font-medium">{p.nombre}</div>
-                            <div className="text-xs text-muted-foreground font-mono">
+                            <div className="font-mono text-xs text-muted-foreground">
                               {p.numero} • ID {p.id}
                             </div>
                           </button>
@@ -472,7 +585,6 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                     </div>
                   </div>
 
-                  {/* guardamos el id en formData.recomendadoPorId */}
                   <input type="hidden" value={formData.recomendadoPorId} readOnly />
                 </>
               )}

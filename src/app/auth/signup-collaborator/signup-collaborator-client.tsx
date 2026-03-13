@@ -13,7 +13,15 @@ type InviteStatus =
 function formatFechaCorta(iso?: string | null) {
   if (!iso) return "—"
   const d = new Date(iso)
-  return d.toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "2-digit" })
+  return d.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  })
+}
+
+function onlyDigitsMax10(v: string) {
+  return (v ?? "").replace(/\D/g, "").slice(0, 10)
 }
 
 async function apiGet(path: string) {
@@ -31,7 +39,12 @@ export default function SignupCollaboratorClient() {
 
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>({ state: "loading" })
 
+  // OJO:
+  // visualmente este campo será "Nombre completo",
+  // pero en el request seguirá viajando como "email"
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
+  const [numeroTelefonico, setNumeroTelefonico] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
 
@@ -73,7 +86,10 @@ export default function SignupCollaboratorClient() {
     setOkMsg(null)
 
     if (!token) return setError("Falta el token de invitación.")
-    if (!email.trim()) return setError("Correo obligatorio.")
+    if (!email.trim()) return setError("El nombre completo es obligatorio.")
+    if (!username.trim()) return setError("El username es obligatorio.")
+    if (!numeroTelefonico.trim()) return setError("El número telefónico es obligatorio.")
+    if (numeroTelefonico.length !== 10) return setError("El número telefónico debe tener 10 dígitos.")
     if (!password || !confirm) return setError("Contraseña y confirmación obligatorias.")
     if (password !== confirm) return setError("Las contraseñas no coinciden.")
 
@@ -88,7 +104,9 @@ export default function SignupCollaboratorClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          email: email.trim().toLowerCase(),
+          email: email.trim(), // <- visualmente es "Nombre completo", pero sigue yendo como email
+          username: username.trim(),
+          numero_telefonico: numeroTelefonico,
           password,
           confirm_password: confirm,
         }),
@@ -143,23 +161,54 @@ export default function SignupCollaboratorClient() {
             <p className="text-sm text-destructive">{inviteStatus.message}</p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Invitación válida • expira: <span className="font-medium">{formatFechaCorta(inviteStatus.expires_at)}</span>
+              Invitación válida • expira:{" "}
+              <span className="font-medium">{formatFechaCorta(inviteStatus.expires_at)}</span>
             </p>
           )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Correo electrónico</label>
+            <label className="text-sm font-medium text-foreground">Nombre completo</label>
             <input
-              type="email"
+              type="text"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="colaborador@ejemplo.com"
+              placeholder="Ej: Juan Pérez López"
               disabled={disabled}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Username</label>
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="Ej: juanperez"
+              disabled={disabled}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Número telefónico</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={numeroTelefonico}
+              onChange={(e) => setNumeroTelefonico(onlyDigitsMax10(e.target.value))}
+              className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="6861234567"
+              disabled={disabled}
+            />
+            {numeroTelefonico.length > 0 && numeroTelefonico.length !== 10 ? (
+              <p className="text-xs text-destructive">Debe tener exactamente 10 dígitos.</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -189,11 +238,15 @@ export default function SignupCollaboratorClient() {
           </div>
 
           {error ? (
-            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/40 rounded-md px-3 py-2">{error}</p>
+            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/40 rounded-md px-3 py-2">
+              {error}
+            </p>
           ) : null}
 
           {okMsg ? (
-            <p className="text-sm text-green-600 bg-green-500/10 border border-green-500/30 rounded-md px-3 py-2">{okMsg}</p>
+            <p className="text-sm text-green-600 bg-green-500/10 border border-green-500/30 rounded-md px-3 py-2">
+              {okMsg}
+            </p>
           ) : null}
 
           <button

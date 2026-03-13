@@ -41,6 +41,10 @@ type SeguimientoItem = {
   venta_fecha: string | null
   observaciones: string | null
   proxima_llamada: string | null
+  proxima_llamada_seguimiento: string | null
+  seguimiento_activo: boolean
+  seguimiento_pausado: boolean
+  seguimiento_pausado_at: string | null
 }
 
 type HistItem = {
@@ -56,8 +60,7 @@ function getAuthAndActingHeaders() {
   const token = localStorage.getItem("pulso_token")
 
   // IMPORTANT: cambia SOLO este key si tu app lo guarda con otro nombre
-  const acting = localStorage.getItem("pulso_acting_user_id")
-
+const acting = localStorage.getItem("pulso_acting_as_user_id")
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(acting ? { "X-Acting-As-User": acting } : {}),
@@ -210,25 +213,41 @@ export function SeguimientoView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openProspectId])
 
-  const iniciarSeguimiento = async (p: SeguimientoItem) => {
-    if (p.proxima_llamada) return
-    setSaving(true)
-    try {
-      await apiPost(`/prospects/${p.id}/acciones`, { accion: "iniciar_seguimiento" })
-      await fetchSeguimiento()
-    } catch (e: any) {
-      alert(e?.message || "No se pudo iniciar seguimiento")
-    } finally {
-      setSaving(false)
-    }
-  }
+const iniciarSeguimiento = async (p: SeguimientoItem) => {
+  if (p.seguimiento_activo) return
 
-  const openProgramarLlamada = (p: SeguimientoItem) => {
-    // ✅ bloquear si ya hay seguimiento activo (proxima_llamada)
-    if (p.proxima_llamada) return
-    resetForms()
-    setModal({ type: "llamada", prospect: p })
+  setSaving(true)
+  try {
+    await apiPost(`/prospects/${p.id}/acciones`, { accion: "iniciar_seguimiento" })
+    await fetchSeguimiento()
+    if (openProspectId === p.id) {
+      await fetchObsHistory(p.id)
+    }
+  } catch (e: any) {
+    alert(e?.message || "No se pudo iniciar seguimiento")
+  } finally {
+    setSaving(false)
   }
+}
+const pausarSeguimiento = async (p: SeguimientoItem) => {
+  setSaving(true)
+  try {
+    await apiPost(`/prospects/${p.id}/acciones`, { accion: "pausar_seguimiento" })
+    await fetchSeguimiento()
+    if (openProspectId === p.id) {
+      await fetchObsHistory(p.id)
+    }
+  } catch (e: any) {
+    alert(e?.message || "No se pudo pausar seguimiento")
+  } finally {
+    setSaving(false)
+  }
+}
+const openProgramarLlamada = (p: SeguimientoItem) => {
+  if (p.seguimiento_activo) return
+  resetForms()
+  setModal({ type: "llamada", prospect: p })
+}
 
   const openObservacion = (p: SeguimientoItem) => {
     resetForms()
@@ -321,8 +340,8 @@ export function SeguimientoView() {
         ) : items.length > 0 ? (
           <div className="grid gap-3 sm:gap-4">
             {items.map((p) => {
-              const seguimientoYaIniciado = !!p.proxima_llamada
-
+const seguimientoActivo = !!p.seguimiento_activo
+const seguimientoPausado = !!p.seguimiento_pausado
               return (
                 <Card
                   key={p.id}
@@ -346,16 +365,19 @@ export function SeguimientoView() {
                               <Badge variant="secondary" className="max-w-[220px] truncate">
                                 {p.numero}
                               </Badge>
-
-                              {seguimientoYaIniciado ? (
-                                <Badge variant="secondary" className="text-[11px] sm:text-xs">
-                                  Seguimiento activo
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[11px] sm:text-xs">
-                                  Sin recordatorios
-                                </Badge>
-                              )}
+{seguimientoActivo ? (
+  <Badge variant="secondary" className="text-[11px] sm:text-xs">
+    Seguimiento activo
+  </Badge>
+) : seguimientoPausado ? (
+  <Badge variant="outline" className="text-[11px] sm:text-xs">
+    Seguimiento pausado
+  </Badge>
+) : (
+  <Badge variant="outline" className="text-[11px] sm:text-xs">
+    Sin recordatorios
+  </Badge>
+)}
                             </div>
                           </div>
 
@@ -368,32 +390,44 @@ export function SeguimientoView() {
                               </DropdownMenuTrigger>
 
                               <DropdownMenuContent align="end" className="w-64">
-                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+<DropdownMenuSeparator />
 
-                                <DropdownMenuItem
-                                  disabled={seguimientoYaIniciado || saving}
-                                  onSelect={(e) => {
-                                    e.preventDefault()
-                                    iniciarSeguimiento(p)
-                                  }}
-                                >
-                                  <PlayCircle className="h-4 w-4 mr-2" />
-                                  {seguimientoYaIniciado ? "Seguimiento ya iniciado" : "Iniciar seguimiento (mensual)"}
-                                </DropdownMenuItem>
+<DropdownMenuItem
+  disabled={seguimientoActivo || saving}
+  onSelect={(e) => {
+    e.preventDefault()
+    if (seguimientoActivo) return
+    iniciarSeguimiento(p)
+  }}
+>
+  <PlayCircle className="h-4 w-4 mr-2" />
+  {seguimientoPausado ? "Reanudar seguimiento" : "Iniciar seguimiento"}
+</DropdownMenuItem>
 
-                                {/* ✅ BLOQUEAR PROGRAMAR LLAMADA si ya está activo */}
-                                <DropdownMenuItem
-                                  disabled={seguimientoYaIniciado || saving}
-                                  onSelect={(e) => {
-                                    e.preventDefault()
-                                    if (seguimientoYaIniciado) return
-                                    openProgramarLlamada(p)
-                                  }}
-                                >
-                                  <Phone className="h-4 w-4 mr-2" />
-                                  {seguimientoYaIniciado ? "Llamada ya programada" : "Programar llamada"}
-                                </DropdownMenuItem>
+<DropdownMenuItem
+  disabled={seguimientoActivo || saving}
+  onSelect={(e) => {
+    e.preventDefault()
+    if (seguimientoActivo) return
+    openProgramarLlamada(p)
+  }}
+>
+  <Phone className="h-4 w-4 mr-2" />
+  Programar llamada
+</DropdownMenuItem>
+
+<DropdownMenuItem
+  disabled={!seguimientoActivo || seguimientoPausado || saving}
+  onSelect={(e) => {
+    e.preventDefault()
+    if (!seguimientoActivo || seguimientoPausado) return
+    pausarSeguimiento(p)
+  }}
+>
+  <XCircle className="h-4 w-4 mr-2" />
+  Pausar seguimiento
+</DropdownMenuItem>
 
                                 <DropdownMenuItem
                                   disabled={saving}
@@ -477,9 +511,7 @@ export function SeguimientoView() {
                 <DialogDescription className="text-sm">Observaciones y seguimiento</DialogDescription>
               </DialogHeader>
 
-              <Button variant="ghost" size="icon" aria-label="Cerrar" onClick={() => setOpenProspectId(null)}>
-                <X className="h-5 w-5" />
-              </Button>
+
             </div>
           </div>
 
@@ -580,13 +612,28 @@ export function SeguimientoView() {
                     {/* ✅ acciones + bloquear programar si seguimiento activo */}
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button
-                        variant="outline"
-                        onClick={() => openProgramarLlamada(selected)}
-                        disabled={saving || !!selected.proxima_llamada}
-                      >
-                        <Phone className="h-4 w-4 mr-2" />
-                        {selected.proxima_llamada ? "Llamada ya programada" : "Programar llamada"}
-                      </Button>
+  variant="outline"
+  onClick={() => iniciarSeguimiento(selected)}
+disabled={saving || selected.seguimiento_activo}>
+  <PlayCircle className="h-4 w-4 mr-2" />
+  {selected.seguimiento_pausado ? "Reanudar seguimiento" : "Iniciar seguimiento"}
+</Button>
+<Button
+  variant="outline"
+  onClick={() => openProgramarLlamada(selected)}
+disabled={saving || selected.seguimiento_activo}>
+  <Phone className="h-4 w-4 mr-2" />
+{selected.seguimiento_activo
+  ? "Seguimiento activo"
+  : "Programar llamada"}
+</Button>
+<Button
+  variant="outline"
+  onClick={() => pausarSeguimiento(selected)}
+disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado}>
+  <XCircle className="h-4 w-4 mr-2" />
+  Pausar seguimiento
+</Button>
 
                       <Button variant="outline" onClick={() => openObservacion(selected)} disabled={saving}>
                         <StickyNote className="h-4 w-4 mr-2" />
@@ -606,25 +653,23 @@ export function SeguimientoView() {
       </Dialog>
 
       {/* ✅ MODAL PROGRAMAR LLAMADA / OBSERVACIÓN (altura fija para scroll en PC) */}
-      <Dialog open={!!modal} onOpenChange={(v) => !v && setModal(null)}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="p-0 overflow-hidden w-[min(620px,96vw)] h-[70vh] max-h-[70vh] rounded-xl flex flex-col"
-        >
-          <div className="shrink-0 border-b p-5 sm:p-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg">
-                {modal?.type === "llamada" ? "Programar llamada" : "Agregar observación"}
-              </DialogTitle>
-              <DialogDescription className="text-sm">
-                {modal?.prospect?.nombre ?? "—"} • {modal?.prospect?.numero ?? "—"}
-              </DialogDescription>
-            </DialogHeader>
-          </div>
+<Dialog open={!!modal} onOpenChange={(v) => !v && setModal(null)}>
+  <DialogContent
+    onOpenAutoFocus={(e) => e.preventDefault()}
+    className="w-[min(620px,96vw)] rounded-xl p-0 overflow-hidden"
+  >
+    <div className="border-b p-5 sm:p-6">
+      <DialogHeader>
+        <DialogTitle className="text-lg">
+          {modal?.type === "llamada" ? "Programar llamada" : "Agregar observación"}
+        </DialogTitle>
+        <DialogDescription className="text-sm">
+          {modal?.prospect?.nombre ?? "—"} • {modal?.prospect?.numero ?? "—"}
+        </DialogDescription>
+      </DialogHeader>
+    </div>
 
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full">
-              <div className="p-5 sm:p-6 grid gap-4">
+    <div className="p-5 sm:p-6 grid gap-4">
                 {modal?.type === "llamada" ? (
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -681,8 +726,6 @@ export function SeguimientoView() {
                     {saving ? "Guardando..." : "Guardar"}
                   </Button>
                 </div>
-              </div>
-            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>

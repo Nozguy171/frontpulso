@@ -29,9 +29,10 @@ type LlamadaDTO = {
   fecha_hora: string
   observaciones?: string | null
   estado: string
+  estado_detalle?: string | null
+  resolved_at?: string | null
   prospect?: { id: number; nombre: string; numero: string } | null
 }
-
 type DaysResponse = { days: { day: string; count: number }[] }
 
 // ✅ Historial real (backend /history)
@@ -125,6 +126,57 @@ function formatFechaHora(iso?: string | null) {
   return d.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
 }
 
+function getDiffMs(iso: string) {
+  return new Date(iso).getTime() - Date.now()
+}
+
+function isUpcomingCall(iso: string) {
+  return getDiffMs(iso) >= 0
+}
+
+function getCallPriority(iso: string): "danger" | "warning" | "safe" {
+  const diffMs = getDiffMs(iso)
+
+  if (diffMs <= 60 * 60 * 1000) return "danger"   // 1 hora o menos
+  if (diffMs <= 3 * 60 * 60 * 1000) return "warning" // 3 horas o menos
+  return "safe"
+}
+
+function getCallPriorityLabel(iso: string) {
+  const diffMs = getDiffMs(iso)
+
+  if (diffMs < 0) return "Vencida"
+  if (diffMs <= 60 * 60 * 1000) return "Urgente"
+  if (diffMs <= 3 * 60 * 60 * 1000) return "Próxima"
+  return "A tiempo"
+}
+
+function getCallPriorityClasses(iso: string) {
+  const priority = getCallPriority(iso)
+
+  if (priority === "danger") {
+    return {
+      card: "border-red-500/60 bg-red-500/5",
+      badge: "border-red-500/50 text-red-600 dark:text-red-400",
+      dot: "bg-red-500",
+    }
+  }
+
+  if (priority === "warning") {
+    return {
+      card: "border-yellow-500/60 bg-yellow-500/5",
+      badge: "border-yellow-500/50 text-yellow-700 dark:text-yellow-400",
+      dot: "bg-yellow-500",
+    }
+  }
+
+  return {
+    card: "border-green-500/60 bg-green-500/5",
+    badge: "border-green-500/50 text-green-700 dark:text-green-400",
+    dot: "bg-green-500",
+  }
+}
+
 function getAutor(h: HistoryItemDTO) {
   return h.effective?.email || h.user?.email || h.actor?.email || "—"
 }
@@ -147,7 +199,16 @@ function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
 function LlamadaActionsMenu({
   onAction,
 }: {
-  onAction?: (action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "observaciones" | "ver_amigos") => void
+  onAction?: (
+    action:
+      | "reagendar"
+      | "agendar_cita"
+      | "vendido"
+      | "rechazado"
+      | "sin_respuesta"
+      | "observaciones"
+      | "ver_amigos"
+  ) => void
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -191,14 +252,23 @@ function LlamadaActionsMenu({
             Marcar vendido
           </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              onAction?.("rechazado")
-            }}
-          >
-            Rechazado
-          </DropdownMenuItem>
+<DropdownMenuItem
+  onSelect={(e) => {
+    e.preventDefault()
+    onAction?.("rechazado")
+  }}
+>
+  Rechazado
+</DropdownMenuItem>
+
+<DropdownMenuItem
+  onSelect={(e) => {
+    e.preventDefault()
+    onAction?.("sin_respuesta")
+  }}
+>
+  Marcar sin respuesta
+</DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
@@ -224,7 +294,7 @@ function LlamadaActionsMenu({
     </div>
   )
 }
-
+const MIN_RECHAZO_MOTIVO_LEN = 10
 type ActionState =
   | null
   | { type: "reagendar"; llamada: LlamadaDTO }
@@ -363,6 +433,9 @@ export function LlamadasView() {
   const [formMonto, setFormMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
 
+const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
+const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
+
   const dateInputRef = useRef<HTMLInputElement | null>(null)
   const timeInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -380,11 +453,11 @@ export function LlamadasView() {
     const base = visibleMonth ?? new Date()
     const { from, to } = monthRange(base)
 
-    const [listData, daysData, dayData] = await Promise.all([
-      apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200&estado=pendiente`),
-      apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}&estado=pendiente`),
-      date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}&estado=pendiente`) : Promise.resolve({ llamadas: [] }),
-    ])
+const [listData, daysData, dayData] = await Promise.all([
+  apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200`),
+  apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
+  date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ llamadas: [] }),
+])
 
     setLlamadas((listData.llamadas || []) as LlamadaDTO[])
 
@@ -395,10 +468,10 @@ export function LlamadasView() {
     setLlamadasDelDia((dayData.llamadas || []) as LlamadaDTO[])
   }
 
-  const onLlamadaAction = (
-    action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "observaciones" | "ver_amigos",
-    llamada: LlamadaDTO
-  ) => {
+const onLlamadaAction = (
+  action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "sin_respuesta" | "observaciones" | "ver_amigos",
+  llamada: LlamadaDTO
+) => {
     if (llamada.estado !== "pendiente") return
 
     resetActionForms()
@@ -436,15 +509,40 @@ export function LlamadasView() {
       setActionOpen({ type: "vendido", llamada })
       return
     }
-    if (action === "rechazado") {
-      setActionOpen({ type: "rechazado", llamada })
-      return
+if (action === "rechazado") {
+  setActionOpen({ type: "rechazado", llamada })
+  return
+}
+if (action === "sin_respuesta") {
+  void (async () => {
+    try {
+      if (!llamada.prospect?.id) {
+        alert("Esta llamada no tiene prospecto asociado.")
+        return
+      }
+
+      await apiPost(`/prospects/${llamada.prospect.id}/acciones`, {
+        accion: "sin_respuesta",
+      })
+
+      await closeCallAsDone(
+        llamada.id,
+        "Marcó sin respuesta desde llamada"
+      )
+
+      await refreshAll()
+    } catch (e: any) {
+      alert(e?.message || "No se pudo marcar como sin respuesta")
     }
-    if (action === "ver_amigos") {
-      setActionOpen({ type: "ver_amigos", llamada })
-      refreshAmigos(llamada.prospect.id)
-      return
-    }
+  })()
+
+  return
+}
+if (action === "ver_amigos") {
+  setActionOpen({ type: "ver_amigos", llamada })
+  refreshAmigos(llamada.prospect.id)
+  return
+}
   }
 
   const closeCallAsDone = async (callId: number, note?: string) => {
@@ -514,7 +612,6 @@ export function LlamadasView() {
         })
 
         // ✅ CERRAR LLAMADA (IMPORTANTE)
-        await closeCallAsDone(actionOpen.llamada.id, "Agendó cita desde llamada")
       }
 
       if (actionOpen.type === "vendido") {
@@ -533,25 +630,24 @@ export function LlamadasView() {
         })
 
         // ✅ CERRAR LLAMADA
-        await closeCallAsDone(actionOpen.llamada.id, `Marcó vendido (sin IVA): ${monto}`)
       }
 
-      if (actionOpen.type === "rechazado") {
-        if (!prospectId) {
-          alert("Esta llamada no tiene prospecto asociado.")
-          return
-        }
-        await apiPost(`/prospects/${prospectId}/acciones`, {
-          accion: "rechazado",
-          motivo: formMotivo?.trim() || null,
-        })
+if (actionOpen.type === "rechazado") {
+  if (!prospectId) {
+    alert("Esta llamada no tiene prospecto asociado.")
+    return
+  }
 
-        // ✅ CERRAR LLAMADA
-        await closeCallAsDone(
-          actionOpen.llamada.id,
-          `Marcó rechazado${formMotivo?.trim() ? `: ${formMotivo.trim()}` : ""}`
-        )
-      }
+  if (!motivoRechazoValido) {
+    alert(`Escribe un motivo de al menos ${MIN_RECHAZO_MOTIVO_LEN} caracteres`)
+    return
+  }
+
+  await apiPost(`/prospects/${prospectId}/acciones`, {
+    accion: "rechazado",
+    motivo: motivoRechazoLimpio,
+  })
+}
 
       setActionOpen(null)
       await refreshAll()
@@ -570,8 +666,7 @@ export function LlamadasView() {
 
     const today = ymd(new Date())
 
-    apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200&estado=pendiente`)
-      .then((data) => {
+apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200`)      .then((data) => {
         if (cancelled) return
         setLlamadas((data.llamadas || []) as LlamadaDTO[])
       })
@@ -595,8 +690,7 @@ export function LlamadasView() {
 
     setLoadingDays(true)
 
-    apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}&estado=pendiente`)
-      .then((data: DaysResponse) => {
+apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`)      .then((data: DaysResponse) => {
         if (cancelled) return
         const s = new Set<string>()
         for (const d of data.days || []) s.add(d.day)
@@ -625,8 +719,7 @@ export function LlamadasView() {
     setLoadingDay(true)
     setErrorDay(null)
 
-    apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}&estado=pendiente`)
-      .then((data) => {
+apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`)      .then((data) => {
         if (cancelled) return
         setLlamadasDelDia((data.llamadas || []) as LlamadaDTO[])
       })
@@ -648,16 +741,21 @@ export function LlamadasView() {
     return [...llamadas].sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
   }, [llamadas])
 
-  const llamadasListFiltradas = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return llamadasOrdenadas
-    return llamadasOrdenadas.filter((c) => {
-      const nombre = c.prospect?.nombre ?? ""
-      const numero = c.prospect?.numero ?? ""
-      const obs = c.observaciones ?? ""
-      return `${nombre} ${numero} ${obs}`.toLowerCase().includes(q)
-    })
-  }, [llamadasOrdenadas, search])
+const llamadasListFiltradas = useMemo(() => {
+  const soloActuales = llamadasOrdenadas.filter(
+    (c) => c.estado === "pendiente" && isUpcomingCall(c.fecha_hora)
+  )
+
+  const q = search.trim().toLowerCase()
+  if (!q) return soloActuales
+
+  return soloActuales.filter((c) => {
+    const nombre = c.prospect?.nombre ?? ""
+    const numero = c.prospect?.numero ?? ""
+    const obs = c.observaciones ?? ""
+    return `${nombre} ${numero} ${obs}`.toLowerCase().includes(q)
+  })
+}, [llamadasOrdenadas, search])
 
   const modifiers = useMemo(
     () => ({
@@ -695,8 +793,7 @@ export function LlamadasView() {
               <CardContent className="pt-0 space-y-3">
                 <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
-                    {loadingList ? "Cargando..." : `${llamadasOrdenadas.length} llamadas`}
-                  </div>
+{loadingList ? "Cargando..." : `${llamadasListFiltradas.length} llamadas`}                  </div>
                   <div className="w-full sm:w-[360px]">
                     <Input
                       placeholder="Buscar por nombre, número u observaciones…"
@@ -715,65 +812,82 @@ export function LlamadasView() {
               </Card>
             ) : llamadasListFiltradas.length > 0 ? (
               <div className="grid gap-3 sm:gap-4">
-                {llamadasListFiltradas.map((llamada) => (
-                  <Card
-                    key={llamada.id}
-                    className="hover:border-primary/50 transition-colors cursor-pointer"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openLlamada(llamada.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") openLlamada(llamada.id)
-                    }}
-                  >
-                    <CardContent className="p-4 sm:p-6">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
-                                {llamada.prospect?.nombre ?? "—"}
-                              </h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary" className="truncate">
-                                  {llamada.prospect?.numero ?? "—"}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {llamada.estado}
-                                </Badge>
-                              </div>
-                            </div>
+ {llamadasListFiltradas.map((llamada) => {
+  const priorityStyles = getCallPriorityClasses(llamada.fecha_hora)
+  const priorityLabel = getCallPriorityLabel(llamada.fecha_hora)
 
-                            {llamada.estado === "pendiente" ? (
-                              <LlamadaActionsMenu onAction={(a) => onLlamadaAction(a, llamada)} />
-                            ) : null}
-                          </div>
+  return (
+    <Card
+      key={llamada.id}
+      className={`hover:border-primary/50 transition-colors cursor-pointer ${priorityStyles.card}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => openLlamada(llamada.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") openLlamada(llamada.id)
+      }}
+    >
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                  {llamada.prospect?.nombre ?? "—"}
+                </h3>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <Badge variant="secondary" className="truncate">
+                    {llamada.prospect?.numero ?? "—"}
+                  </Badge>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <CalendarIcon className="h-4 w-4" />
-                              <span className="truncate">
-                                {formatFechaCorta(llamada.fecha_hora)} • {formatHora(llamada.fecha_hora)}
-                              </span>
-                            </div>
+                  <Badge variant="outline" className="text-xs">
+                    {llamada.estado}
+                  </Badge>
 
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Phone className="h-4 w-4" />
-                              <span className="truncate">Llamada programada</span>
-                            </div>
-                          </div>
+                  <Badge variant="outline" className={`text-xs ${priorityStyles.badge}`}>
+                    {priorityLabel}
+                  </Badge>
+                </div>
+              </div>
 
-                          {llamada.observaciones ? (
-                            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <StickyNote className="h-4 w-4 mt-0.5" />
-                              <span className="line-clamp-2">{llamada.observaciones}</span>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              {llamada.estado === "pendiente" ? (
+                <LlamadaActionsMenu onAction={(a) => onLlamadaAction(a, llamada)} />
+              ) : null}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${priorityStyles.dot}`} />
+                <CalendarIcon className="h-4 w-4" />
+                <span className="truncate">
+                  {formatFechaCorta(llamada.fecha_hora)} • {formatHora(llamada.fecha_hora)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-0">
+                <Phone className="h-4 w-4" />
+                <span className="truncate">Llamada programada</span>
+              </div>
+            </div>
+
+            {llamada.observaciones ? (
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <StickyNote className="h-4 w-4 mt-0.5" />
+                <span className="line-clamp-2">{llamada.observaciones}</span>
+              </div>
+            ) : null}
+
+            {llamada.estado_detalle ? (
+              <div className="text-xs text-muted-foreground">
+                {llamada.estado_detalle}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+})}
               </div>
             ) : (
               <Card>
@@ -1025,19 +1139,19 @@ export function LlamadasView() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {actionOpen?.type === "reagendar"
-                ? "Reagendar llamada"
-                : actionOpen?.type === "agendar_cita"
-                ? "Agendar cita"
-                : actionOpen?.type === "vendido"
-                ? "Marcar vendido"
-                : actionOpen?.type === "rechazado"
-                ? "Marcar rechazado"
-                : actionOpen?.type === "ver_amigos"
-                ? "Ver amigos"
-                : "Agregar observaciones"}
-            </DialogTitle>
+<DialogTitle>
+  {actionOpen?.type === "reagendar"
+    ? "Reagendar llamada"
+    : actionOpen?.type === "agendar_cita"
+    ? "Agendar cita"
+    : actionOpen?.type === "vendido"
+    ? "Marcar vendido"
+    : actionOpen?.type === "rechazado"
+    ? "Marcar rechazado"
+    : actionOpen?.type === "ver_amigos"
+    ? "Ver amigos"
+    : "Agregar observaciones"}
+</DialogTitle>
             <DialogDescription>
               {actionOpen?.llamada?.prospect?.nombre ?? "—"} • {actionOpen?.llamada?.prospect?.numero ?? "—"}
             </DialogDescription>
@@ -1051,7 +1165,6 @@ export function LlamadasView() {
                 <div className="text-[11px] text-muted-foreground mt-1">Se guarda en el historial del prospecto.</div>
               </div>
             ) : null}
-
             {(actionOpen?.type === "reagendar" || actionOpen?.type === "agendar_cita") ? (
               <>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -1129,16 +1242,34 @@ export function LlamadasView() {
               />
             ) : null}
 
-            {actionOpen?.type === "rechazado" ? (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Motivo (opcional)</div>
-                <Input
-                  value={formMotivo}
-                  onChange={(e) => setFormMotivo(e.target.value)}
-                  placeholder="Ej: No le interesa / sin presupuesto..."
-                />
-              </div>
-            ) : null}
+{actionOpen?.type === "rechazado" ? (
+  <div>
+    <div className="text-xs text-muted-foreground mb-1">Motivo *</div>
+    <Input
+      value={formMotivo}
+      onChange={(e) => setFormMotivo(e.target.value)}
+      placeholder="Ej: No le interesa / sin presupuesto / ya compró con otra persona..."
+    />
+    <div
+      className={`text-[11px] mt-1 ${
+        formMotivo.length === 0
+          ? "text-muted-foreground"
+          : motivoRechazoValido
+            ? "text-muted-foreground"
+            : "text-red-500"
+      }`}
+    >
+      {formMotivo.length === 0
+        ? `Escribe al menos ${MIN_RECHAZO_MOTIVO_LEN} caracteres.`
+        : motivoRechazoValido
+          ? "Motivo válido ✅"
+          : `Te faltan ${Math.max(
+              0,
+              MIN_RECHAZO_MOTIVO_LEN - motivoRechazoLimpio.length
+            )} caracteres.`}
+    </div>
+  </div>
+) : null}
 
             {/* ✅ VER AMIGOS (REAL) */}
             {actionOpen?.type === "ver_amigos" ? (
@@ -1196,9 +1327,12 @@ export function LlamadasView() {
                 <Button variant="ghost" onClick={() => setActionOpen(null)} disabled={savingAction}>
                   Cancelar
                 </Button>
-                <Button onClick={submitAction} disabled={savingAction}>
-                  {savingAction ? "Guardando..." : "Guardar"}
-                </Button>
+<Button
+  onClick={submitAction}
+  disabled={savingAction || (actionOpen?.type === "rechazado" && !motivoRechazoValido)}
+>
+  {savingAction ? "Guardando..." : "Guardar"}
+</Button>
               </div>
             )}
           </div>

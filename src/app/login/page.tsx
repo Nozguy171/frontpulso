@@ -6,7 +6,7 @@ import { API_BASE_URL } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ login, password }),
       });
 
       const data = await res.json();
@@ -30,7 +30,7 @@ export default function LoginPage() {
         if (data.access_token) {
           localStorage.setItem("pulso_token", data.access_token);
         }
-        router.push("/prospectos"); // ajusta la ruta a tu dashboard/prospectos
+        router.push("/prospectos");
       }
     } catch (err) {
       console.error(err);
@@ -52,26 +52,28 @@ export default function LoginPage() {
               Pulso CRM Profesional
             </span>
           </div>
+
           <h1 className="text-2xl font-semibold tracking-tight">
             Iniciar sesión
           </h1>
+
           <p className="text-sm text-muted-foreground">
-            Accede a tu panel de prospectos, citas y seguimiento.
+            Accede con tu nombre de usuario o número telefónico.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Correo electrónico
+              Usuario o número telefónico
             </label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
               className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="correo@ejemplo.com"
+              placeholder="Tu usuario o número telefónico"
             />
           </div>
 
