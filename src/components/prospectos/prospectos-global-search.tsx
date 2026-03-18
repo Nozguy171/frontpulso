@@ -39,7 +39,7 @@ type SearchResponse = {
 }
 
 function getActingAsUserIdSafe(): string | null {
-  const v = typeof window !== "undefined" ? localStorage.getItem("pulso_acting_as_user_id") : null
+  const v = typeof window !== "undefined" ? localStorage.getItem("pulso_acting_user_id") : null
   if (!v) return null
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return null

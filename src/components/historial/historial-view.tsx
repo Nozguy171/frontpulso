@@ -92,7 +92,7 @@ function prettyAccion(accion: string) {
 
 function getActingAsUserId(): string | null {
   if (typeof window === "undefined") return null
-  const v = localStorage.getItem("pulso_acting_as_user_id")
+  const v = localStorage.getItem("pulso_acting_user_id")
   if (!v) return null
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return null
