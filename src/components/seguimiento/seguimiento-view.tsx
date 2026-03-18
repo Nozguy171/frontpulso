@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
+
+
 
 import {
   DropdownMenu,
@@ -31,6 +34,12 @@ import {
   Clock,
   User as UserIcon,
 } from "lucide-react"
+function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
+  const el = ref.current
+  if (!el) return
+  ;(el as any).showPicker?.()
+  el.focus()
+}
 
 type SeguimientoItem = {
   id: number
@@ -60,7 +69,7 @@ function getAuthAndActingHeaders() {
   const token = localStorage.getItem("pulso_token")
 
   // IMPORTANT: cambia SOLO este key si tu app lo guarda con otro nombre
-const acting = localStorage.getItem("pulso_acting_as_user_id")
+const acting = localStorage.getItem("pulso_acting_user_id")
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(acting ? { "X-Acting-As-User": acting } : {}),
@@ -78,6 +87,28 @@ async function apiGet(path: string) {
     throw new Error(txt || "Error")
   }
   return res.json()
+}
+
+function getNowLocalFechaHora() {
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, "0")
+  const dd = String(now.getDate()).padStart(2, "0")
+  const hh = String(now.getHours()).padStart(2, "0")
+  const mi = String(now.getMinutes()).padStart(2, "0")
+
+  return {
+    fecha: `${yyyy}-${mm}-${dd}`,
+    hora: `${hh}:${mi}`,
+  }
+}
+
+function getTodayYMD() {
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, "0")
+  const dd = String(now.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
 }
 
 async function apiPost(path: string, body: any) {
@@ -136,7 +167,8 @@ export function SeguimientoView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-
+  const [resumeProspect, setResumeProspect] = useState<SeguimientoItem | null>(null)
+  const todayYMD = useMemo(() => getTodayYMD(), [])
   // detalle
   const [openProspectId, setOpenProspectId] = useState<number | null>(null)
   const selected = useMemo(() => items.find((x) => x.id === openProspectId) ?? null, [items, openProspectId])
@@ -149,7 +181,8 @@ export function SeguimientoView() {
   // modales de acciones
   const [modal, setModal] = useState<null | { type: "llamada" | "observacion"; prospect: SeguimientoItem }>(null)
   const [saving, setSaving] = useState(false)
-
+const llamadaFechaInputRef = useRef<HTMLInputElement | null>(null)
+const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
   // forms
   const [formFecha, setFormFecha] = useState("")
   const [formHora, setFormHora] = useState("")
@@ -212,13 +245,24 @@ export function SeguimientoView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openProspectId])
-
 const iniciarSeguimiento = async (p: SeguimientoItem) => {
   if (p.seguimiento_activo) return
 
+  // si ya estaba pausado, ahora abre modal para reanudar
+  if (p.seguimiento_pausado) {
+    setResumeProspect(p)
+    return
+  }
+
+  const { fecha, hora } = getNowLocalFechaHora()
+
   setSaving(true)
   try {
-    await apiPost(`/prospects/${p.id}/acciones`, { accion: "iniciar_seguimiento" })
+    await apiPost(`/prospects/${p.id}/acciones`, {
+      accion: "iniciar_seguimiento",
+      fecha,
+      hora,
+    })
     await fetchSeguimiento()
     if (openProspectId === p.id) {
       await fetchObsHistory(p.id)
@@ -243,6 +287,32 @@ const pausarSeguimiento = async (p: SeguimientoItem) => {
     setSaving(false)
   }
 }
+const reanudarSeguimiento = async (payload: { fecha: string; hora: string }) => {
+  if (!resumeProspect) return
+
+  const p = resumeProspect
+
+  setSaving(true)
+  try {
+    await apiPost(`/prospects/${p.id}/acciones`, {
+      accion: "iniciar_seguimiento",
+      fecha: payload.fecha,
+      hora: payload.hora,
+    })
+
+    setResumeProspect(null)
+    await fetchSeguimiento()
+
+    if (openProspectId === p.id) {
+      await fetchObsHistory(p.id)
+    }
+  } catch (e: any) {
+    alert(e?.message || "No se pudo reanudar seguimiento")
+  } finally {
+    setSaving(false)
+  }
+}
+
 const openProgramarLlamada = (p: SeguimientoItem) => {
   if (p.seguimiento_activo) return
   resetForms()
@@ -254,19 +324,7 @@ const openProgramarLlamada = (p: SeguimientoItem) => {
     setModal({ type: "observacion", prospect: p })
   }
 
-  const mandarARechazados = async (p: SeguimientoItem) => {
-    const motivo = (prompt("Motivo (opcional):") || "").trim()
-    setSaving(true)
-    try {
-      await apiPost(`/prospects/${p.id}/acciones`, { accion: "rechazado", motivo })
-      await fetchSeguimiento()
-      if (openProspectId === p.id) setOpenProspectId(null)
-    } catch (e: any) {
-      alert(e?.message || "No se pudo mandar a rechazados")
-    } finally {
-      setSaving(false)
-    }
-  }
+
 
   const submitModal = async () => {
     if (!modal) return
@@ -274,18 +332,24 @@ const openProgramarLlamada = (p: SeguimientoItem) => {
 
     setSaving(true)
     try {
-      if (modal.type === "llamada") {
-        if (!formFecha || !formHora) {
-          alert("Fecha y hora son obligatorias")
-          return
-        }
-        await apiPost(`/prospects/${p.id}/acciones`, {
-          accion: "programar_llamada",
-          fecha: isoDayFromDateInput(formFecha),
-          hora: formHora,
-          observaciones: (formObs || "").trim() || "Seguimiento (manual)",
-        })
-      }
+if (modal.type === "llamada") {
+  if (!formFecha || !formHora) {
+    alert("Fecha y hora son obligatorias")
+    return
+  }
+
+  if (formFecha < todayYMD) {
+    alert("No puedes elegir un día anterior a hoy")
+    return
+  }
+
+  await apiPost(`/prospects/${p.id}/acciones`, {
+    accion: "programar_llamada",
+    fecha: isoDayFromDateInput(formFecha),
+    hora: formHora,
+    observaciones: (formObs || "").trim() || "Seguimiento (manual)",
+  })
+}
 
       if (modal.type === "observacion") {
         if (!formObs.trim()) {
@@ -440,19 +504,6 @@ const seguimientoPausado = !!p.seguimiento_pausado
                                   Agregar observación
                                 </DropdownMenuItem>
 
-                                <DropdownMenuSeparator />
-
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  disabled={saving}
-                                  onSelect={(e) => {
-                                    e.preventDefault()
-                                    mandarARechazados(p)
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Mandar a rechazados
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -675,22 +726,45 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <div className="text-xs text-muted-foreground mb-1">Fecha</div>
-                        <Input
-                          type="date"
-                          value={formFecha}
-                          onChange={(e) => setFormFecha(e.target.value)}
-                          className="dark:[color-scheme:dark] h-10"
-                        />
+<div className="relative">
+  <Input
+    ref={llamadaFechaInputRef}
+    type="date"
+    min={todayYMD}
+    value={formFecha}
+    onChange={(e) => setFormFecha(e.target.value)}
+    className="pr-12 picker-dark-clean h-10"
+  />
+  <button
+    type="button"
+    onClick={() => openNativePicker(llamadaFechaInputRef)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-white"
+    aria-label="Seleccionar fecha"
+  >
+    <CalendarIcon className="h-4 w-4" />
+  </button>
+</div>
                       </div>
 
                       <div>
                         <div className="text-xs text-muted-foreground mb-1">Hora</div>
-                        <Input
-                          type="time"
-                          value={formHora}
-                          onChange={(e) => setFormHora(e.target.value)}
-                          className="dark:[color-scheme:dark] h-10"
-                        />
+<div className="relative">
+  <Input
+    ref={llamadaHoraInputRef}
+    type="time"
+    value={formHora}
+    onChange={(e) => setFormHora(e.target.value)}
+    className="pr-12 picker-dark-clean h-10"
+  />
+  <button
+    type="button"
+    onClick={() => openNativePicker(llamadaHoraInputRef)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-white"
+    aria-label="Seleccionar hora"
+  >
+    <Clock className="h-4 w-4" />
+  </button>
+</div>
                       </div>
                     </div>
 
@@ -729,6 +803,16 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
           </div>
         </DialogContent>
       </Dialog>
+
+<SeguimientoResumeDialog
+  open={!!resumeProspect}
+  prospect={resumeProspect}
+  loading={saving}
+  onOpenChange={(open) => {
+    if (!open) setResumeProspect(null)
+  }}
+  onSubmit={reanudarSeguimiento}
+/>
 
       {/* ayuda extra para scroll de ScrollArea */}
       <style jsx global>{`

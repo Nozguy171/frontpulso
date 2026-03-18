@@ -114,3 +114,17 @@
     background: oklch(0.45 0.018 260);
   }
 }
+
+.picker-dark-clean {
+  color-scheme: dark;
+}
+
+.picker-dark-clean::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker-dark-clean::-webkit-clear-button,
+.picker-dark-clean::-webkit-inner-spin-button {
+  display: none;
+}

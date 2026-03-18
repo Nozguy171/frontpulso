@@ -12,7 +12,13 @@ import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,10 +35,16 @@ type LlamadaDTO = {
   fecha_hora: string
   observaciones?: string | null
   estado: string
+  estado_label?: string | null
   estado_detalle?: string | null
   resolved_at?: string | null
-  prospect?: { id: number; nombre: string; numero: string } | null
-}
+prospect?: {
+  id: number
+  nombre: string
+  numero: string
+  estado?: string | null
+  venta_monto_sin_iva?: number | null
+} | null}
 type DaysResponse = { days: { day: string; count: number }[] }
 
 // ✅ Historial real (backend /history)
@@ -52,7 +64,7 @@ type AmigosResponse = {
 }
 
 function getActingAsUserId(): string | null {
-  const v = localStorage.getItem("pulso_acting_as_user_id")
+  const v = localStorage.getItem("pulso_acting_user_id")
   if (!v) return null
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return null
@@ -177,6 +189,80 @@ function getCallPriorityClasses(iso: string) {
   }
 }
 
+function getCallStatusVisual(estado?: string | null) {
+  switch ((estado || "").toLowerCase()) {
+    case "pendiente":
+      return {
+        card: "border-yellow-500/60 bg-yellow-500/5",
+        badge: "border-yellow-500/50 text-yellow-700 dark:text-yellow-400",
+        labelFallback: "Pendiente",
+      }
+
+    case "reagendada":
+      return {
+        card: "border-orange-500/60 bg-orange-500/5",
+        badge: "border-orange-500/50 text-orange-700 dark:text-orange-400",
+        labelFallback: "Reagendada",
+      }
+
+    case "con_cita":
+      return {
+        card: "border-blue-500/60 bg-blue-500/5",
+        badge: "border-blue-500/50 text-blue-700 dark:text-blue-400",
+        labelFallback: "Cita agendada",
+      }
+
+    case "vendida":
+      return {
+        card: "border-green-500/60 bg-green-500/5",
+        badge: "border-green-500/50 text-green-700 dark:text-green-400",
+        labelFallback: "Vendida",
+      }
+
+    case "rechazada":
+      return {
+        card: "border-red-500/60 bg-red-500/5",
+        badge: "border-red-500/50 text-red-700 dark:text-red-400",
+        labelFallback: "Rechazada",
+      }
+
+    case "sin_respuesta":
+      return {
+        card: "border-slate-500/60 bg-slate-500/5",
+        badge: "border-slate-500/50 text-slate-700 dark:text-slate-400",
+        labelFallback: "Sin respuesta",
+      }
+
+    case "cancelada":
+      return {
+        card: "border-slate-500/60 bg-slate-500/5",
+        badge: "border-slate-500/50 text-slate-700 dark:text-slate-400",
+        labelFallback: "Cancelada",
+      }
+
+    case "hecha":
+      return {
+        card: "border-cyan-500/60 bg-cyan-500/5",
+        badge: "border-cyan-500/50 text-cyan-700 dark:text-cyan-400",
+        labelFallback: "Hecha",
+      }
+
+    case "anexada":
+      return {
+        card: "border-slate-500/60 bg-slate-500/5",
+        badge: "border-slate-500/50 text-slate-700 dark:text-slate-400",
+        labelFallback: "Anexada",
+      }
+
+    default:
+      return {
+        card: "border-border/50 bg-card",
+        badge: "",
+        labelFallback: estado || "—",
+      }
+  }
+}
+
 function getAutor(h: HistoryItemDTO) {
   return h.effective?.email || h.user?.email || h.actor?.email || "—"
 }
@@ -195,9 +281,24 @@ function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
   ;(el as any).showPicker?.()
   el.focus()
 }
+const MONTHLY_FOLLOWUP_OBS = "Seguimiento mensual (mantenimiento / nuevas citas)"
 
+function isMonthlyFollowupCall(llamada: LlamadaDTO) {
+  return (llamada.observaciones ?? "").trim() === MONTHLY_FOLLOWUP_OBS
+}
+
+function isSoldLikeCall(llamada: LlamadaDTO) {
+  const estado = (llamada.prospect?.estado ?? "").toLowerCase()
+  return estado === "seguimiento" || estado === "vendido" || llamada.prospect?.venta_monto_sin_iva != null
+}
+
+function shouldHideCallManagementActions(llamada: LlamadaDTO) {
+  return isMonthlyFollowupCall(llamada) || isSoldLikeCall(llamada)
+}
 function LlamadaActionsMenu({
   onAction,
+  allowRejectLike = true,
+  allowManagementActions = true,
 }: {
   onAction?: (
     action:
@@ -209,6 +310,8 @@ function LlamadaActionsMenu({
       | "observaciones"
       | "ver_amigos"
   ) => void
+  allowRejectLike?: boolean
+  allowManagementActions?: boolean
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -221,57 +324,64 @@ function LlamadaActionsMenu({
 
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-          <DropdownMenuSeparator />
+{allowManagementActions ? (
+  <>
+    <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              onAction?.("reagendar")
-            }}
-          >
-            Reagendar llamada
-          </DropdownMenuItem>
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        onAction?.("reagendar")
+      }}
+    >
+      Reagendar llamada
+    </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              onAction?.("agendar_cita")
-            }}
-          >
-            Agendar cita
-          </DropdownMenuItem>
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        onAction?.("agendar_cita")
+      }}
+    >
+      Agendar cita
+    </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        onAction?.("vendido")
+      }}
+    >
+      Marcar vendido
+    </DropdownMenuItem>
+  </>
+) : null}
 
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              onAction?.("vendido")
-            }}
-          >
-            Marcar vendido
-          </DropdownMenuItem>
+{allowRejectLike ? (
+  <>
+    {!allowManagementActions ? <DropdownMenuSeparator /> : null}
 
-<DropdownMenuItem
-  onSelect={(e) => {
-    e.preventDefault()
-    onAction?.("rechazado")
-  }}
->
-  Rechazado
-</DropdownMenuItem>
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        onAction?.("rechazado")
+      }}
+    >
+      Rechazado
+    </DropdownMenuItem>
 
-<DropdownMenuItem
-  onSelect={(e) => {
-    e.preventDefault()
-    onAction?.("sin_respuesta")
-  }}
->
-  Marcar sin respuesta
-</DropdownMenuItem>
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        onAction?.("sin_respuesta")
+      }}
+    >
+      Marcar sin respuesta
+    </DropdownMenuItem>
+  </>
+) : null}
 
-          <DropdownMenuSeparator />
-
+{allowManagementActions || allowRejectLike ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
@@ -430,8 +540,18 @@ export function LlamadasView() {
   const [formHora, setFormHora] = useState("")
   const [formUbicacion, setFormUbicacion] = useState("")
   const [formObs, setFormObs] = useState("")
-  const [formMonto, setFormMonto] = useState("")
+  const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("")
+  const [formMontoConIva, setFormMontoConIva] = useState("")
+  const [formIvaMonto, setFormIvaMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
+    const montoConIvaNum = Number(formMontoConIva)
+  const ivaMontoNum = Number(formIvaMonto)
+
+  const montoSinIvaCalculado = useMemo(() => {
+    if (!formMontoConIva || !formIvaMonto) return null
+    if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaMontoNum)) return null
+    return montoConIvaNum - ivaMontoNum
+  }, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaMontoNum])
 
 const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
 const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
@@ -444,17 +564,18 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     setFormHora("")
     setFormUbicacion("")
     setFormObs("")
-    setFormMonto("")
+    setFormTipoVenta("")
+    setFormMontoConIva("")
+    setFormIvaMonto("")
     setFormMotivo("")
   }
-
   const refreshAll = async () => {
     const today = ymd(new Date())
     const base = visibleMonth ?? new Date()
     const { from, to } = monthRange(base)
 
 const [listData, daysData, dayData] = await Promise.all([
-  apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200`),
+  apiGet(`/calls/?from=${encodeURIComponent(today)}&estado=pendiente&limit=200`),
   apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
   date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ llamadas: [] }),
 ])
@@ -523,12 +644,8 @@ if (action === "sin_respuesta") {
 
       await apiPost(`/prospects/${llamada.prospect.id}/acciones`, {
         accion: "sin_respuesta",
+        call_id: llamada.id,
       })
-
-      await closeCallAsDone(
-        llamada.id,
-        "Marcó sin respuesta desde llamada"
-      )
 
       await refreshAll()
     } catch (e: any) {
@@ -544,13 +661,6 @@ if (action === "ver_amigos") {
   return
 }
   }
-
-  const closeCallAsDone = async (callId: number, note?: string) => {
-    await apiPost(`/calls/${callId}/marcar-hecha`, {
-      observaciones: note?.trim() || null,
-    })
-  }
-
   const submitAction = async () => {
     if (!actionOpen) return
 
@@ -603,15 +713,15 @@ if (action === "ver_amigos") {
           alert("Fecha, hora y ubicación son obligatorias")
           return
         }
+
         await apiPost(`/prospects/${prospectId}/acciones`, {
           accion: "agendar_cita",
+          call_id: actionOpen.llamada.id,
           fecha: formFecha,
           hora: formHora,
           ubicacion: formUbicacion.trim(),
           observaciones: formObs?.trim() || null,
         })
-
-        // ✅ CERRAR LLAMADA (IMPORTANTE)
       }
 
       if (actionOpen.type === "vendido") {
@@ -619,17 +729,38 @@ if (action === "ver_amigos") {
           alert("Esta llamada no tiene prospecto asociado.")
           return
         }
-        const monto = Number(formMonto)
-        if (!monto || monto <= 0) {
-          alert("Ingresa un monto válido (sin IVA)")
+
+        if (!formTipoVenta) {
+          alert("Debes elegir si la venta fue a contado o a crédito")
           return
         }
+
+        const montoConIva = Number(formMontoConIva)
+        const ivaMonto = Number(formIvaMonto)
+        const montoSinIva = montoConIva - ivaMonto
+
+        if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
+          alert("Ingresa un precio con IVA válido")
+          return
+        }
+
+        if (!Number.isFinite(ivaMonto) || ivaMonto < 0) {
+          alert("Ingresa un IVA válido")
+          return
+        }
+
+        if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
+          alert("El precio sin IVA debe ser mayor a 0")
+          return
+        }
+
         await apiPost(`/prospects/${prospectId}/acciones`, {
           accion: "vendido",
-          monto_sin_iva: monto,
+          call_id: actionOpen.llamada.id,
+          tipo_venta: formTipoVenta,
+          monto_con_iva: montoConIva,
+          iva_monto: ivaMonto,
         })
-
-        // ✅ CERRAR LLAMADA
       }
 
 if (actionOpen.type === "rechazado") {
@@ -642,9 +773,9 @@ if (actionOpen.type === "rechazado") {
     alert(`Escribe un motivo de al menos ${MIN_RECHAZO_MOTIVO_LEN} caracteres`)
     return
   }
-
   await apiPost(`/prospects/${prospectId}/acciones`, {
     accion: "rechazado",
+    call_id: actionOpen.llamada.id,
     motivo: motivoRechazoLimpio,
   })
 }
@@ -666,7 +797,8 @@ if (actionOpen.type === "rechazado") {
 
     const today = ymd(new Date())
 
-apiGet(`/calls/?from=${encodeURIComponent(today)}&limit=200`)      .then((data) => {
+apiGet(`/calls/?from=${encodeURIComponent(today)}&estado=pendiente&limit=200`)  
+   .then((data) => {
         if (cancelled) return
         setLlamadas((data.llamadas || []) as LlamadaDTO[])
       })
@@ -839,10 +971,9 @@ const llamadasListFiltradas = useMemo(() => {
                   <Badge variant="secondary" className="truncate">
                     {llamada.prospect?.numero ?? "—"}
                   </Badge>
-
-                  <Badge variant="outline" className="text-xs">
-                    {llamada.estado}
-                  </Badge>
+<Badge variant="outline" className="text-xs">
+  {llamada.estado_label ?? "Pendiente"}
+</Badge>
 
                   <Badge variant="outline" className={`text-xs ${priorityStyles.badge}`}>
                     {priorityLabel}
@@ -851,8 +982,11 @@ const llamadasListFiltradas = useMemo(() => {
               </div>
 
               {llamada.estado === "pendiente" ? (
-                <LlamadaActionsMenu onAction={(a) => onLlamadaAction(a, llamada)} />
-              ) : null}
+<LlamadaActionsMenu
+  allowManagementActions={!shouldHideCallManagementActions(llamada)}
+  allowRejectLike={!shouldHideCallManagementActions(llamada)}
+  onAction={(a) => onLlamadaAction(a, llamada)}
+/>             ) : null}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
@@ -950,9 +1084,9 @@ const llamadasListFiltradas = useMemo(() => {
                       .slice()
                       .sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
                       .map((llamada) => (
-                        <Card
-                          key={llamada.id}
-                          className="hover:border-primary/50 transition-colors cursor-pointer"
+<Card
+  key={llamada.id}
+  className={`hover:border-primary/50 transition-colors cursor-pointer ${getCallStatusVisual(llamada.estado).card}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => openLlamada(llamada.id)}
@@ -970,15 +1104,21 @@ const llamadasListFiltradas = useMemo(() => {
                                     </h3>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Badge variant="secondary">{llamada.prospect?.numero ?? "—"}</Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        {llamada.estado}
-                                      </Badge>
+<Badge
+  variant="outline"
+  className={`text-xs ${getCallStatusVisual(llamada.estado).badge}`}
+>
+  {llamada.estado_label ?? getCallStatusVisual(llamada.estado).labelFallback}
+</Badge>
                                     </div>
                                   </div>
 
                                   {llamada.estado === "pendiente" ? (
-                                    <LlamadaActionsMenu onAction={(a) => onLlamadaAction(a, llamada)} />
-                                  ) : null}
+<LlamadaActionsMenu
+  allowManagementActions={!shouldHideCallManagementActions(llamada)}
+  allowRejectLike={!shouldHideCallManagementActions(llamada)}
+  onAction={(a) => onLlamadaAction(a, llamada)}
+/>                                 ) : null}
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
@@ -1058,9 +1198,12 @@ const llamadasListFiltradas = useMemo(() => {
                         <Badge variant="secondary" className="truncate">
                           {selectedLlamada.prospect?.numero ?? "—"}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {selectedLlamada.estado}
-                        </Badge>
+<Badge
+  variant="outline"
+  className={`text-xs ${getCallStatusVisual(selectedLlamada.estado).badge}`}
+>
+  {selectedLlamada.estado_label ?? getCallStatusVisual(selectedLlamada.estado).labelFallback}
+</Badge>
                       </div>
                     </div>
 
@@ -1230,16 +1373,58 @@ const llamadasListFiltradas = useMemo(() => {
             ) : null}
 
             {actionOpen?.type === "vendido" ? (
-              <Input
-                inputMode="decimal"
-                placeholder="Ej: 12000"
-                value={formMonto}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
-                  setFormMonto(cleaned)
-                }}
-              />
+              <div className="grid gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Tipo de venta *</div>
+                  <Select
+                    value={formTipoVenta}
+                    onValueChange={(value) => setFormTipoVenta(value as "contado" | "credito")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona tipo de venta..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="contado">Contado</SelectItem>
+                      <SelectItem value="credito">Crédito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Precio con IVA *</div>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="Ej: 12000"
+                    value={formMontoConIva}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+                      setFormMontoConIva(cleaned)
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">IVA *</div>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="Ej: 1655.17"
+                    value={formIvaMonto}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+                      setFormIvaMonto(cleaned)
+                    }}
+                  />
+                </div>
+
+                <div className="rounded-md border p-3 bg-muted/30">
+                  <div className="text-xs text-muted-foreground mb-1">Precio sin IVA</div>
+                  <div className="text-lg font-semibold">
+                    {montoSinIvaCalculado == null ? "—" : montoSinIvaCalculado.toFixed(2)}
+                  </div>
+                </div>
+              </div>
             ) : null}
 
 {actionOpen?.type === "rechazado" ? (
@@ -1329,7 +1514,11 @@ const llamadasListFiltradas = useMemo(() => {
                 </Button>
 <Button
   onClick={submitAction}
-  disabled={savingAction || (actionOpen?.type === "rechazado" && !motivoRechazoValido)}
+  disabled={
+    savingAction ||
+    (actionOpen?.type === "rechazado" && !motivoRechazoValido) ||
+    (actionOpen?.type === "vendido" && !formTipoVenta)
+  }
 >
   {savingAction ? "Guardando..." : "Guardar"}
 </Button>

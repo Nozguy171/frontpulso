@@ -14,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 
 type Prospecto = {
   id: number
@@ -85,7 +84,6 @@ export function ProspectosGlobalSearch({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<SearchResponse | null>(null)
-  const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null)
 
   const getAuthHeaders = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("pulso_token") : null
@@ -269,15 +267,6 @@ export function ProspectosGlobalSearch({
                           </div>
                         </div>
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setSelectedProspecto(prospecto)}
-                          aria-label="Acciones"
-                          className="shrink-0"
-                        >
-                          <MoreVertical className="h-5 w-5" />
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -288,21 +277,6 @@ export function ProspectosGlobalSearch({
         </DialogContent>
       </Dialog>
 
-      {selectedProspecto && (
-        <ProspectoActionsDialog
-          prospecto={selectedProspecto}
-          open={!!selectedProspecto}
-          mode="search"
-          onOpenChange={(next) => {
-            if (!next) setSelectedProspecto(null)
-          }}
-          onActionCompleted={() => {
-            setSelectedProspecto(null)
-            onActionCompleted?.()
-            runSearch(estado)
-          }}
-        />
-      )}
     </>
   )
 }

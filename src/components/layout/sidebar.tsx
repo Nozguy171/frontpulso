@@ -97,13 +97,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     router.push("/")
   }
 
-  const clearActing = () => {
-    clearActingLS()
-    setActingId("")
-    setActingEmail("")
-    setLoadingActing(false)
-    router.refresh()
-  }
+const clearActing = () => {
+  clearActingLS()
+  setActingId("")
+  setActingEmail("")
+  setLoadingActing(false)
+  window.location.reload()
+}
 
   useEffect(() => {
     let cancelled = false

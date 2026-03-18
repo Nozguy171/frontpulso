@@ -12,6 +12,13 @@ import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import {
   DropdownMenu,
@@ -30,6 +37,7 @@ type CitaDTO = {
   ubicacion: string
   observaciones?: string | null
   estado: string
+  estado_label?: string | null
   estado_detalle?: string | null
   resolved_at?: string | null
   prospect?: { id: number; nombre: string; numero: string } | null
@@ -49,7 +57,7 @@ type HistoryItemDTO = {
 }
 
 function getActingAsUserId(): string | null {
-  const v = localStorage.getItem("pulso_acting_as_user_id")
+  const v = localStorage.getItem("pulso_acting_user_id")
   if (!v) return null
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return null
@@ -170,6 +178,53 @@ function formatFechaHora(iso?: string | null) {
   if (!iso) return ""
   const d = new Date(iso)
   return d.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
+}
+
+function getCitaStatusVisual(estado?: string | null) {
+  switch ((estado || "").toLowerCase()) {
+    case "programada":
+      return {
+        card: "border-yellow-500/60 bg-yellow-500/5",
+        badge: "border-yellow-500/50 text-yellow-700 dark:text-yellow-400",
+        labelFallback: "Pendiente",
+      }
+    case "reagendada":
+      return {
+        card: "border-orange-500/60 bg-orange-500/5",
+        badge: "border-orange-500/50 text-orange-700 dark:text-orange-400",
+        labelFallback: "Reagendada",
+      }
+    case "vendida":
+      return {
+        card: "border-green-500/60 bg-green-500/5",
+        badge: "border-green-500/50 text-green-700 dark:text-green-400",
+        labelFallback: "Vendida",
+      }
+    case "rechazada":
+      return {
+        card: "border-red-500/60 bg-red-500/5",
+        badge: "border-red-500/50 text-red-700 dark:text-red-400",
+        labelFallback: "Rechazada",
+      }
+    case "anexada":
+      return {
+        card: "border-slate-500/60 bg-slate-500/5",
+        badge: "border-slate-500/50 text-slate-700 dark:text-slate-400",
+        labelFallback: "Anexada",
+      }
+    case "cancelada":
+      return {
+        card: "border-slate-500/60 bg-slate-500/5",
+        badge: "border-slate-500/50 text-slate-700 dark:text-slate-400",
+        labelFallback: "Cancelada",
+      }
+    default:
+      return {
+        card: "border-border/50 bg-card",
+        badge: "",
+        labelFallback: estado || "—",
+      }
+  }
 }
 
 function getAutor(h: HistoryItemDTO) {
@@ -375,21 +430,33 @@ export function CitasView() {
   const [formHora, setFormHora] = useState("")
   const [formUbicacion, setFormUbicacion] = useState("")
   const [formObs, setFormObs] = useState("")
-  const [formMonto, setFormMonto] = useState("")
+const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("")
+const [formMontoConIva, setFormMontoConIva] = useState("")
+const [formIvaMonto, setFormIvaMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
 const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
 const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
   const dateInputRef = useRef<HTMLInputElement | null>(null)
   const timeInputRef = useRef<HTMLInputElement | null>(null)
+  const montoConIvaNum = Number(formMontoConIva)
+const ivaMontoNum = Number(formIvaMonto)
 
-  const resetActionForms = () => {
-    setFormFecha("")
-    setFormHora("")
-    setFormUbicacion("")
-    setFormObs("")
-    setFormMonto("")
-    setFormMotivo("")
-  }
+const montoSinIvaCalculado = useMemo(() => {
+  if (!formMontoConIva || !formIvaMonto) return null
+  if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaMontoNum)) return null
+  return montoConIvaNum - ivaMontoNum
+}, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaMontoNum])
+
+const resetActionForms = () => {
+  setFormFecha("")
+  setFormHora("")
+  setFormUbicacion("")
+  setFormObs("")
+  setFormMotivo("")
+  setFormTipoVenta("")
+  setFormMontoConIva("")
+  setFormIvaMonto("")
+}
 
   const refreshAll = async () => {
     const today = ymd(new Date())
@@ -397,7 +464,7 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     const { from, to } = monthRange(base)
 
 const [listData, daysData, dayData] = await Promise.all([
-  apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`),
+  apiGet(`/appointments/?from=${encodeURIComponent(today)}&estado=programada&limit=200`),
   apiGet(`/appointments/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
   date ? apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ citas: [] }),
 ])
@@ -464,13 +531,14 @@ if (action === "programar_llamada") {
           alert("Fecha, hora y ubicación son obligatorias")
           return
         }
-        await apiPost(`/prospects/${prospectId}/acciones`, {
-          accion: "agendar_cita",
-          fecha: formFecha,
-          hora: formHora,
-          ubicacion: formUbicacion.trim(),
-          observaciones: formObs?.trim() || null,
-        })
+      await apiPost(`/prospects/${prospectId}/acciones`, {
+        accion: "agendar_cita",
+        appointment_id: actionOpen.cita.id,
+        fecha: formFecha,
+        hora: formHora,
+        ubicacion: formUbicacion.trim(),
+        observaciones: formObs?.trim() || null,
+      })
       }
 if (actionOpen.type === "programar_llamada") {
   if (!formFecha || !formHora) {
@@ -485,17 +553,39 @@ if (actionOpen.type === "programar_llamada") {
     observaciones: formObs?.trim() || null,
   })
 }
-      if (actionOpen.type === "vendido") {
-        const monto = Number(formMonto)
-        if (!monto || monto <= 0) {
-          alert("Ingresa un monto válido (sin IVA)")
-          return
-        }
-        await apiPost(`/prospects/${prospectId}/acciones`, {
-          accion: "vendido",
-          monto_sin_iva: monto,
-        })
-      }
+if (actionOpen.type === "vendido") {
+  if (!formTipoVenta) {
+    alert("Debes elegir si la venta fue a contado o a crédito")
+    return
+  }
+
+  const montoConIva = Number(formMontoConIva)
+  const ivaMonto = Number(formIvaMonto)
+  const montoSinIva = montoConIva - ivaMonto
+
+  if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
+    alert("Ingresa un precio con IVA válido")
+    return
+  }
+
+  if (!Number.isFinite(ivaMonto) || ivaMonto < 0) {
+    alert("Ingresa un IVA válido")
+    return
+  }
+
+  if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
+    alert("El precio sin IVA debe ser mayor a 0")
+    return
+  }
+
+await apiPost(`/prospects/${prospectId}/acciones`, {
+  accion: "vendido",
+  appointment_id: actionOpen.cita.id,
+  tipo_venta: formTipoVenta,
+  monto_con_iva: montoConIva,
+  iva_monto: ivaMonto,
+})
+}
 
 if (actionOpen.type === "rechazado") {
   if (!motivoRechazoValido) {
@@ -503,10 +593,11 @@ if (actionOpen.type === "rechazado") {
     return
   }
 
-  await apiPost(`/prospects/${prospectId}/acciones`, {
-    accion: "rechazado",
-    motivo: motivoRechazoLimpio,
-  })
+await apiPost(`/prospects/${prospectId}/acciones`, {
+  accion: "rechazado",
+  appointment_id: actionOpen.cita.id,
+  motivo: motivoRechazoLimpio,
+})
 }
 
       if (actionOpen.type === "observaciones") {
@@ -541,7 +632,8 @@ if (actionOpen.type === "rechazado") {
 
     const today = ymd(new Date())
 
-apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`)      .then((data) => {
+apiGet(`/appointments/?from=${encodeURIComponent(today)}&estado=programada&limit=200`) 
+    .then((data) => {
         if (cancelled) return
         setCitas((data.citas || []) as CitaDTO[])
       })
@@ -617,18 +709,17 @@ apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`)      .then((data) 
   }, [citas])
 
 const citasListFiltradas = useMemo(() => {
-  const soloActuales = citasOrdenadas.filter(
-    (c) => c.estado === "programada" && isUpcomingAppointment(c.fecha_hora)
-  )
+  const base = citasOrdenadas
 
   const q = search.trim().toLowerCase()
-  if (!q) return soloActuales
+  if (!q) return base
 
-  return soloActuales.filter((c) => {
+  return base.filter((c) => {
     const nombre = c.prospect?.nombre ?? ""
     const numero = c.prospect?.numero ?? ""
     const ubic = c.ubicacion ?? ""
-    return `${nombre} ${numero} ${ubic}`.toLowerCase().includes(q)
+    const estado = c.estado_label ?? c.estado ?? ""
+    return `${nombre} ${numero} ${ubic} ${estado}`.toLowerCase().includes(q)
   })
 }, [citasOrdenadas, search])
 
@@ -683,13 +774,12 @@ const citasListFiltradas = useMemo(() => {
             ) : citasListFiltradas.length > 0 ? (
               <div className="grid gap-3 sm:gap-4">
 {citasListFiltradas.map((cita) => {
-  const priorityStyles = getAppointmentPriorityClasses(cita.fecha_hora)
-  const priorityLabel = getAppointmentPriorityLabel(cita.fecha_hora)
+const statusStyles = getCitaStatusVisual(cita.estado)
 
   return (
-    <Card
-      key={cita.id}
-      className={`hover:border-primary/50 transition-colors cursor-pointer ${priorityStyles.card}`}
+<Card
+  key={cita.id}
+  className={`hover:border-primary/50 transition-colors cursor-pointer ${statusStyles.card}`}
       role="button"
       tabIndex={0}
       onClick={() => openCita(cita.id)}
@@ -711,13 +801,9 @@ const citasListFiltradas = useMemo(() => {
                     {cita.prospect?.numero ?? "—"}
                   </Badge>
 
-                  <Badge variant="outline" className="text-xs">
-                    {cita.estado}
-                  </Badge>
-
-                  <Badge variant="outline" className={`text-xs ${priorityStyles.badge}`}>
-                    {priorityLabel}
-                  </Badge>
+<Badge variant="outline" className={`text-xs ${statusStyles.badge}`}>
+  {cita.estado_label ?? statusStyles.labelFallback}
+</Badge>
                 </div>
               </div>
 
@@ -728,7 +814,6 @@ const citasListFiltradas = useMemo(() => {
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${priorityStyles.dot}`} />
                 <CalendarIcon className="h-4 w-4" />
                 <span className="truncate">
                   {formatFechaCorta(cita.fecha_hora)} • {formatHora(cita.fecha_hora)}
@@ -820,9 +905,9 @@ const citasListFiltradas = useMemo(() => {
                       .slice()
                       .sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
                       .map((cita) => (
-                        <Card
-                          key={cita.id}
-                          className="hover:border-primary/50 transition-colors cursor-pointer"
+<Card
+  key={cita.id}
+  className={`hover:border-primary/50 transition-colors cursor-pointer ${getCitaStatusVisual(cita.estado).card}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => openCita(cita.id)}
@@ -838,9 +923,12 @@ const citasListFiltradas = useMemo(() => {
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Badge variant="secondary">{cita.prospect?.numero ?? "—"}</Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        {cita.estado}
-                                      </Badge>
+<Badge
+  variant="outline"
+  className={`text-xs ${getCitaStatusVisual(cita.estado).badge}`}
+>
+  {cita.estado_label ?? getCitaStatusVisual(cita.estado).labelFallback}
+</Badge>
                                     </div>
                                   </div>
 
@@ -924,9 +1012,12 @@ const citasListFiltradas = useMemo(() => {
                         <Badge variant="secondary" className="truncate">
                           {selectedCita.prospect?.numero ?? "—"}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {selectedCita.estado}
-                        </Badge>
+<Badge
+  variant="outline"
+  className={`text-xs ${getCitaStatusVisual(selectedCita.estado).badge}`}
+>
+  {selectedCita.estado_label ?? getCitaStatusVisual(selectedCita.estado).labelFallback}
+</Badge>
                       </div>
                     </div>
 
@@ -1036,42 +1127,42 @@ const citasListFiltradas = useMemo(() => {
       <div>
         <div className="text-xs text-muted-foreground mb-1">Fecha</div>
         <div className="relative">
-          <Input
-            ref={dateInputRef}
-            type="date"
-            value={formFecha}
-            onChange={(e) => setFormFecha(e.target.value)}
-            className="pr-10 dark:[color-scheme:dark]"
-          />
-          <button
-            type="button"
-            onClick={() => openNativePicker(dateInputRef)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Seleccionar fecha"
-          >
-            <CalendarIcon className="h-4 w-4" />
-          </button>
+<Input
+  ref={dateInputRef}
+  type="date"
+  value={formFecha}
+  onChange={(e) => setFormFecha(e.target.value)}
+  className="pr-12 picker-dark-clean h-10"
+/>
+<button
+  type="button"
+  onClick={() => openNativePicker(dateInputRef)}
+  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-white"
+  aria-label="Seleccionar fecha"
+>
+  <CalendarIcon className="h-4 w-4" />
+</button>
         </div>
       </div>
 
       <div>
         <div className="text-xs text-muted-foreground mb-1">Hora</div>
         <div className="relative">
-          <Input
-            ref={timeInputRef}
-            type="time"
-            value={formHora}
-            onChange={(e) => setFormHora(e.target.value)}
-            className="pr-10 dark:[color-scheme:dark]"
-          />
-          <button
-            type="button"
-            onClick={() => openNativePicker(timeInputRef)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Seleccionar hora"
-          >
-            <Clock className="h-4 w-4" />
-          </button>
+<Input
+  ref={timeInputRef}
+  type="time"
+  value={formHora}
+  onChange={(e) => setFormHora(e.target.value)}
+  className="pr-12 picker-dark-clean h-10"
+/>
+<button
+  type="button"
+  onClick={() => openNativePicker(timeInputRef)}
+  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-white"
+  aria-label="Seleccionar hora"
+>
+  <Clock className="h-4 w-4" />
+</button>
         </div>
       </div>
     </div>
@@ -1104,18 +1195,60 @@ const citasListFiltradas = useMemo(() => {
   </>
 ) : null}
 
-            {actionOpen?.type === "vendido" ? (
-              <Input
-                inputMode="decimal"
-                placeholder="Ej: 12000"
-                value={formMonto}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
-                  setFormMonto(cleaned)
-                }}
-              />
-            ) : null}
+{actionOpen?.type === "vendido" ? (
+  <div className="grid gap-3">
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">Tipo de venta *</div>
+      <Select
+        value={formTipoVenta}
+        onValueChange={(value) => setFormTipoVenta(value as "contado" | "credito")}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Selecciona tipo de venta..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="contado">Contado</SelectItem>
+          <SelectItem value="credito">Crédito</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">Precio con IVA *</div>
+      <Input
+        inputMode="decimal"
+        placeholder="Ej: 12000"
+        value={formMontoConIva}
+        onChange={(e) => {
+          const raw = e.target.value
+          const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+          setFormMontoConIva(cleaned)
+        }}
+      />
+    </div>
+
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">IVA *</div>
+      <Input
+        inputMode="decimal"
+        placeholder="Ej: 1655.17"
+        value={formIvaMonto}
+        onChange={(e) => {
+          const raw = e.target.value
+          const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+          setFormIvaMonto(cleaned)
+        }}
+      />
+    </div>
+
+    <div className="rounded-md border p-3 bg-muted/30">
+      <div className="text-xs text-muted-foreground mb-1">Precio sin IVA</div>
+      <div className="text-lg font-semibold">
+        {montoSinIvaCalculado == null ? "—" : montoSinIvaCalculado.toFixed(2)}
+      </div>
+    </div>
+  </div>
+) : null}
 
 {actionOpen?.type === "rechazado" ? (
   <div>
@@ -1160,7 +1293,11 @@ const citasListFiltradas = useMemo(() => {
               </Button>
 <Button
   onClick={submitAction}
-  disabled={savingAction || (actionOpen?.type === "rechazado" && !motivoRechazoValido)}
+  disabled={
+    savingAction ||
+    (actionOpen?.type === "rechazado" && !motivoRechazoValido) ||
+    (actionOpen?.type === "vendido" && !formTipoVenta)
+  }
 >
   {savingAction ? "Guardando..." : "Guardar"}
 </Button>

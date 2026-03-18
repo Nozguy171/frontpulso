@@ -34,7 +34,7 @@ type ProspectDTO = {
 
 function getActingAsUserId(): string | null {
   try {
-    const v = localStorage.getItem("pulso_acting_as_user_id")
+    const v = localStorage.getItem("pulso_acting_user_id")
     if (!v) return null
     const n = Number(v)
     if (!Number.isFinite(n) || n <= 0) return null

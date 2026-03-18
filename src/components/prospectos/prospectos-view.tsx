@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon } from "lucide-react"
+import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon, UserCheck } from "lucide-react"
 import { ProspectoDialog } from "./prospecto-dialog"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectosGlobalSearch } from "./prospectos-global-search"
+import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8085/api"
 
 type Prospecto = {
@@ -22,16 +23,26 @@ type Prospecto = {
   recomendado_por_nombre?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
+  venta_monto_sin_iva?: number | null
+  venta_fecha?: string | null
+  rechazo_motivo?: string | null
+  rechazo_at?: string | null
+  rechazo_count?: number
+  seguimiento_pausado?: boolean
+  seguimiento_pausado_at?: string | null
+  created_at?: string
 }
 
 type ProspectStats = {
   total: number
+  total_prospectos: number
+  total_clientes: number
+  total_general: number
   pendientes: number
   sin_respuesta: number
 }
-
 function getActingAsUserIdSafe(): string | null {
-  const v = typeof window !== "undefined" ? localStorage.getItem("pulso_acting_as_user_id") : null
+  const v = typeof window !== "undefined" ? localStorage.getItem("pulso_acting_user_id") : null
   if (!v) return null
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return null
@@ -43,7 +54,7 @@ export function ProspectosView() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null)
   const [activeTab, setActiveTab] = useState<"pendientes" | "sinRespuesta">("pendientes")
-
+const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   const [prospectosPendientes, setProspectosPendientes] = useState<Prospecto[]>([])
   const [prospectosSinRespuesta, setProspectosSinRespuesta] = useState<Prospecto[]>([])
   const [stats, setStats] = useState<ProspectStats | null>(null)
@@ -112,13 +123,16 @@ export function ProspectosView() {
       throw new Error(data.message ?? "Error al cargar stats")
     }
 
-    const payload = (data?.stats ?? data) as ProspectStats
+  const payload = (data?.stats ?? data) as Partial<ProspectStats>
 
-    return {
-      total: Number(payload.total ?? 0),
-      pendientes: Number(payload.pendientes ?? 0),
-      sin_respuesta: Number(payload.sin_respuesta ?? 0),
-    } as ProspectStats
+  return {
+    total: Number(payload.total ?? 0),
+    total_prospectos: Number(payload.total_prospectos ?? payload.total ?? 0),
+    total_clientes: Number(payload.total_clientes ?? 0),
+    total_general: Number(payload.total_general ?? 0),
+    pendientes: Number(payload.pendientes ?? 0),
+    sin_respuesta: Number(payload.sin_respuesta ?? 0),
+  } as ProspectStats
   }
 
   async function loadProspects() {
@@ -193,50 +207,65 @@ export function ProspectosView() {
 </div>
 
         {/* Stats cards responsive */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {/* Total */}
-          <Card className="col-span-2 lg:col-span-1 border-border/50 bg-card/50 backdrop-blur">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <UsersIcon className="h-4 w-4" />
-                    Total Prospectos
-                  </p>
-                  <p className="mt-2 text-2xl sm:text-3xl font-bold text-foreground leading-none">
-                    {stats?.total ?? 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pendientes */}
-          <Card className="border-primary/30 bg-primary/5 backdrop-blur">
-            <CardContent className="p-4 sm:p-6">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Pendientes
-              </p>
-              <p className="mt-2 text-2xl sm:text-3xl font-bold text-primary leading-none">
-                {stats?.pendientes ?? prospectosPendientes.length}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Sin Respuesta */}
-          <Card className="border-warning/30 bg-warning/5 backdrop-blur">
-            <CardContent className="p-4 sm:p-6">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <PhoneIcon className="h-4 w-4" />
-                Sin Respuesta
-              </p>
-              <p className="mt-2 text-2xl sm:text-3xl font-bold text-warning leading-none">
-                {stats?.sin_respuesta ?? prospectosSinRespuesta.length}
-              </p>
-            </CardContent>
-          </Card>
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+  {/* Total Prospectos */}
+  <Card className="border-border/50 bg-card/50 backdrop-blur">
+    <CardContent className="p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <UsersIcon className="h-4 w-4" />
+            Total Prospectos
+          </p>
+          <p className="mt-2 text-2xl sm:text-3xl font-bold text-foreground leading-none">
+            {stats?.total_prospectos ??
+              ((stats?.pendientes ?? prospectosPendientes.length) +
+                (stats?.sin_respuesta ?? prospectosSinRespuesta.length))}
+          </p>
         </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Total Clientes */}
+  <Card className="border-emerald-500/30 bg-emerald-500/5 backdrop-blur">
+    <CardContent className="p-4 sm:p-6">
+      <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <UserCheck className="h-4 w-4" />
+        Total Clientes
+      </p>
+      <p className="mt-2 text-2xl sm:text-3xl font-bold text-emerald-600 leading-none">
+        {stats?.total_clientes ?? 0}
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Pendientes */}
+  <Card className="border-primary/30 bg-primary/5 backdrop-blur">
+    <CardContent className="p-4 sm:p-6">
+      <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <User className="h-4 w-4" />
+        Pendientes
+      </p>
+      <p className="mt-2 text-2xl sm:text-3xl font-bold text-primary leading-none">
+        {stats?.pendientes ?? prospectosPendientes.length}
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Sin Respuesta */}
+  <Card className="border-warning/30 bg-warning/5 backdrop-blur">
+    <CardContent className="p-4 sm:p-6">
+      <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <PhoneIcon className="h-4 w-4" />
+        Sin Respuesta
+      </p>
+      <p className="mt-2 text-2xl sm:text-3xl font-bold text-warning leading-none">
+        {stats?.sin_respuesta ?? prospectosSinRespuesta.length}
+      </p>
+    </CardContent>
+  </Card>
+</div>
 
         {/* Search + buttons */}
         <Card className="mb-4 sm:mb-6 border-border/50 bg-card/80 backdrop-blur">
@@ -325,8 +354,10 @@ export function ProspectosView() {
               >
                 <CardContent className="p-4 sm:p-6">
 <div className="flex items-start justify-between gap-3 sm:gap-4">
-  <div className="flex-1 min-w-0">
-    <div className="flex items-start gap-3 mb-3">
+<div
+  className="flex-1 min-w-0 cursor-pointer"
+  onClick={() => setDetailProspecto(prospecto)}
+>    <div className="flex items-start gap-3 mb-3">
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
         <User className="h-5 w-5 text-primary" />
       </div>
@@ -366,15 +397,18 @@ export function ProspectosView() {
     </div>
   </div>
 
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={() => setSelectedProspecto(prospecto)}
-    className="flex-shrink-0 opacity-100"
-    aria-label="Acciones"
-  >
-    <MoreVertical className="h-5 w-5" />
-  </Button>
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={(e) => {
+    e.stopPropagation()
+    setSelectedProspecto(prospecto)
+  }}
+  className="flex-shrink-0 opacity-100"
+  aria-label="Acciones"
+>
+  <MoreVertical className="h-5 w-5" />
+</Button>
 </div>
                 </CardContent>
               </Card>
@@ -383,26 +417,37 @@ export function ProspectosView() {
         </div>
       </div>
 
-      <ProspectoDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onSubmit={(nuevoProspecto) => {
-          setProspectosPendientes((prev) => [nuevoProspecto, ...prev])
-          setIsAddDialogOpen(false)
-          loadProspects()
-        }}
-      />
+<ProspectoDialog
+  open={isAddDialogOpen}
+  onOpenChange={setIsAddDialogOpen}
+  onSubmit={(nuevoProspecto) => {
+    setProspectosPendientes((prev) => [nuevoProspecto, ...prev])
+    setIsAddDialogOpen(false)
+    loadProspects()
+  }}
+/>
 
-      {selectedProspecto && (
-        <ProspectoActionsDialog
-          prospecto={selectedProspecto}
-          open={!!selectedProspecto}
-          onOpenChange={(open) => !open && setSelectedProspecto(null)}
-          onActionCompleted={() => {
-            loadProspects()
-          }}
-        />
-      )}
+<ProspectoDetailDialog
+  prospecto={detailProspecto}
+  open={!!detailProspecto}
+  onOpenChange={(open) => !open && setDetailProspecto(null)}
+  onActionCompleted={() => {
+    loadProspects()
+    setDetailProspecto(null)
+  }}
+/>
+
+{selectedProspecto && (
+  <ProspectoActionsDialog
+    prospecto={selectedProspecto}
+    open={!!selectedProspecto}
+    onOpenChange={(open) => !open && setSelectedProspecto(null)}
+    onActionCompleted={() => {
+      loadProspects()
+      setSelectedProspecto(null)
+    }}
+  />
+)}
     </AppLayout>
   )
 }
