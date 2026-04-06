@@ -40,7 +40,15 @@ type CitaDTO = {
   estado_label?: string | null
   estado_detalle?: string | null
   resolved_at?: string | null
-  prospect?: { id: number; nombre: string; numero: string } | null
+prospect?: {
+  id: number
+  nombre: string
+  numero: string
+  estado?: string | null
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion?: string | null
+  venta_monto_sin_iva?: number | null
+} | null
 }
 
 type DaysResponse = { days: { day: string; count: number }[] }
@@ -230,6 +238,22 @@ function getCitaStatusVisual(estado?: string | null) {
 function getAutor(h: HistoryItemDTO) {
   return h.effective?.email || h.user?.email || h.actor?.email || "—"
 }
+function hasCitaActions(cita: CitaDTO) {
+  return (cita.estado || "").toLowerCase() === "programada"
+}
+
+function sortCitasActionableFirst(a: CitaDTO, b: CitaDTO) {
+  const aHasActions = hasCitaActions(a) ? 0 : 1
+  const bHasActions = hasCitaActions(b) ? 0 : 1
+
+  if (aHasActions !== bHasActions) return aHasActions - bHasActions
+
+  return +new Date(a.fecha_hora) - +new Date(b.fecha_hora)
+}
+function isSoldLikeAppointment(cita: CitaDTO) {
+  const estado = (cita.prospect?.estado ?? "").toLowerCase()
+  return estado === "seguimiento" || estado === "vendido" || cita.prospect?.venta_monto_sin_iva != null
+}
 
 // rango del mes (LOCAL)
 function monthRange(base: Date) {
@@ -239,10 +263,12 @@ function monthRange(base: Date) {
 }
 function CitaActionsMenu({
   onAction,
+  allowRejectLike = true,
 }: {
   onAction?: (
     action: "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones"
   ) => void
+  allowRejectLike?: boolean
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -286,14 +312,16 @@ function CitaActionsMenu({
             Marcar vendido
           </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              onAction?.("rechazado")
-            }}
-          >
-            Rechazado
-          </DropdownMenuItem>
+          {allowRejectLike ? (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                onAction?.("rechazado")
+              }}
+            >
+              Rechazado
+            </DropdownMenuItem>
+          ) : null}
 
           <DropdownMenuSeparator />
 
@@ -438,15 +466,19 @@ const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
 const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
   const dateInputRef = useRef<HTMLInputElement | null>(null)
   const timeInputRef = useRef<HTMLInputElement | null>(null)
-  const montoConIvaNum = Number(formMontoConIva)
-const ivaMontoNum = Number(formIvaMonto)
+const montoConIvaNum = Number(formMontoConIva)
+const ivaPorcentajeNum = Number(formIvaMonto)
 
 const montoSinIvaCalculado = useMemo(() => {
   if (!formMontoConIva || !formIvaMonto) return null
-  if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaMontoNum)) return null
-  return montoConIvaNum - ivaMontoNum
-}, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaMontoNum])
+  if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaPorcentajeNum)) return null
+  if (ivaPorcentajeNum < 0) return null
 
+  const divisor = 1 + ivaPorcentajeNum / 100
+  if (!Number.isFinite(divisor) || divisor <= 0) return null
+
+  return montoConIvaNum / divisor
+}, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaPorcentajeNum])
 const resetActionForms = () => {
   setFormFecha("")
   setFormHora("")
@@ -464,7 +496,7 @@ const resetActionForms = () => {
     const { from, to } = monthRange(base)
 
 const [listData, daysData, dayData] = await Promise.all([
-  apiGet(`/appointments/?from=${encodeURIComponent(today)}&estado=programada&limit=200`),
+  apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`),
   apiGet(`/appointments/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
   date ? apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ citas: [] }),
 ])
@@ -481,8 +513,14 @@ const [listData, daysData, dayData] = await Promise.all([
 const onCitaAction = (
   action: "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones",
   cita: CitaDTO
-) => {    if (!cita?.prospect?.id) return
+) => {
+    if (!cita?.prospect?.id) return
     if (cita.estado !== "programada") return
+
+    if (isSoldLikeAppointment(cita) && action === "rechazado") {
+      alert("No puedes marcar como rechazado a un prospecto que ya tiene ventas.")
+      return
+    }
 
     resetActionForms()
 
@@ -558,32 +596,45 @@ if (actionOpen.type === "vendido") {
     alert("Debes elegir si la venta fue a contado o a crédito")
     return
   }
+const montoConIva = Number(formMontoConIva)
+const ivaPorcentaje = Number(formIvaMonto)
 
-  const montoConIva = Number(formMontoConIva)
-  const ivaMonto = Number(formIvaMonto)
-  const montoSinIva = montoConIva - ivaMonto
+if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
+  alert("Ingresa un precio con IVA válido")
+  return
+}
 
-  if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
-    alert("Ingresa un precio con IVA válido")
-    return
-  }
+if (!Number.isFinite(ivaPorcentaje) || ivaPorcentaje < 0) {
+  alert("Ingresa un IVA válido")
+  return
+}
 
-  if (!Number.isFinite(ivaMonto) || ivaMonto < 0) {
-    alert("Ingresa un IVA válido")
-    return
-  }
+const divisor = 1 + ivaPorcentaje / 100
 
-  if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
-    alert("El precio sin IVA debe ser mayor a 0")
-    return
-  }
+if (!Number.isFinite(divisor) || divisor <= 0) {
+  alert("Ingresa un IVA válido")
+  return
+}
+
+const montoSinIva = montoConIva / divisor
+const ivaMontoCalculado = montoConIva - montoSinIva
+
+if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
+  alert("El precio sin IVA debe ser mayor a 0")
+  return
+}
+
+if (!Number.isFinite(ivaMontoCalculado) || ivaMontoCalculado < 0) {
+  alert("El IVA calculado no es válido")
+  return
+}
 
 await apiPost(`/prospects/${prospectId}/acciones`, {
   accion: "vendido",
   appointment_id: actionOpen.cita.id,
   tipo_venta: formTipoVenta,
   monto_con_iva: montoConIva,
-  iva_monto: ivaMonto,
+  iva_monto: Number(ivaMontoCalculado.toFixed(2)),
 })
 }
 
@@ -630,9 +681,9 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
     setLoadingList(true)
     setErrorList(null)
 
-    const today = ymd(new Date())
+const today = ymd(new Date())
 
-apiGet(`/appointments/?from=${encodeURIComponent(today)}&estado=programada&limit=200`) 
+apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`)
     .then((data) => {
         if (cancelled) return
         setCitas((data.citas || []) as CitaDTO[])
@@ -704,9 +755,9 @@ apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`)      .then((data) 
   }, [date])
 
   // ====== Derived ======
-  const citasOrdenadas = useMemo(() => {
-    return [...citas].sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
-  }, [citas])
+const citasOrdenadas = useMemo(() => {
+  return [...citas].sort(sortCitasActionableFirst)
+}, [citas])
 
 const citasListFiltradas = useMemo(() => {
   const base = citasOrdenadas
@@ -832,7 +883,12 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                 <span className="line-clamp-2">{cita.observaciones}</span>
               </div>
             ) : null}
-
+{cita.prospect?.forma_obtencion ? (
+  <div className="text-xs text-muted-foreground">
+    <span className="font-medium">Forma de obtención:</span>{" "}
+    {cita.prospect.forma_obtencion}
+  </div>
+) : null}
             {cita.estado_detalle ? (
               <div className="text-xs text-muted-foreground">
                 {cita.estado_detalle}
@@ -901,10 +957,10 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   </Card>
                 ) : citasDelDia.length > 0 ? (
                   <div className="grid gap-3 sm:gap-4">
-                    {citasDelDia
-                      .slice()
-                      .sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
-                      .map((cita) => (
+{citasDelDia
+  .slice()
+  .sort(sortCitasActionableFirst)
+  .map((cita) => (
 <Card
   key={cita.id}
   className={`hover:border-primary/50 transition-colors cursor-pointer ${getCitaStatusVisual(cita.estado).card}`}
@@ -932,7 +988,10 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     </div>
                                   </div>
 
-                                  {cita.estado === "programada" ? <CitaActionsMenu onAction={(a) => onCitaAction(a, cita)} /> : null}
+                                  {cita.estado === "programada" ? <CitaActionsMenu
+  allowRejectLike={!isSoldLikeAppointment(cita)}
+  onAction={(a) => onCitaAction(a, cita)}
+/> : null}
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
@@ -952,6 +1011,12 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     <span className="line-clamp-2">{cita.observaciones}</span>
                                   </div>
                                 ) : null}
+                                {cita.prospect?.forma_obtencion ? (
+  <div className="text-xs text-muted-foreground">
+    <span className="font-medium">Forma de obtención:</span>{" "}
+    {cita.prospect.forma_obtencion}
+  </div>
+) : null}
                                 {cita.estado_detalle ? (
   <div className="text-xs text-muted-foreground">
     {cita.estado_detalle}
@@ -1019,6 +1084,12 @@ const statusStyles = getCitaStatusVisual(cita.estado)
   {selectedCita.estado_label ?? getCitaStatusVisual(selectedCita.estado).labelFallback}
 </Badge>
                       </div>
+                      {selectedCita.prospect?.forma_obtencion ? (
+  <div className="text-sm text-muted-foreground mt-2">
+    <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+    {selectedCita.prospect.forma_obtencion}
+  </div>
+) : null}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 pt-1">
@@ -1228,10 +1299,10 @@ const statusStyles = getCitaStatusVisual(cita.estado)
     </div>
 
     <div>
-      <div className="text-xs text-muted-foreground mb-1">IVA *</div>
+      <div className="text-xs text-muted-foreground mb-1">IVA (%) *</div>
       <Input
         inputMode="decimal"
-        placeholder="Ej: 1655.17"
+        placeholder="Ej: 7.5"
         value={formIvaMonto}
         onChange={(e) => {
           const raw = e.target.value

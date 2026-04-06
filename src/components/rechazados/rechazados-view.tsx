@@ -27,6 +27,8 @@ type ProspectDTO = {
   id: number
   nombre: string
   numero: string
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+forma_obtencion?: string | null
   observaciones?: string | null
   estado: string
   created_at?: string
@@ -322,6 +324,11 @@ export function RechazadosView() {
                           <span className="font-medium">Obs:</span> <span className="line-clamp-1">{p.observaciones}</span>
                         </div>
                       ) : null}
+                      {p.forma_obtencion ? (
+  <div className="text-xs text-muted-foreground">
+    <span className="font-medium">Forma de obtención:</span> {p.forma_obtencion}
+  </div>
+) : null}
                     </div>
                   </div>
                 </CardContent>
@@ -379,6 +386,12 @@ export function RechazadosView() {
                             {selected.rechazo_count} rechazos
                           </Badge>
                         ) : null}
+                        {selected?.forma_obtencion ? (
+  <div className="text-sm text-muted-foreground">
+    <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+    {selected.forma_obtencion}
+  </div>
+) : null}
                       </div>
                     </div>
 

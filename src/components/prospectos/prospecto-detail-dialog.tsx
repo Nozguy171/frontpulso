@@ -20,6 +20,7 @@ import {
   Clock3,
   FileText,
   MoreVertical,
+  DollarSign,
 } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
@@ -52,6 +53,8 @@ type DetailResponse = {
     recomendados_count: number
     citas_count: number
     llamadas_count: number
+    ventas_count: number
+    ventas_total_sin_iva: number
   }
   recomendados: ProspectoBase[]
   citas: Array<{
@@ -76,6 +79,17 @@ type DetailResponse = {
     resolved_at?: string | null
     created_at?: string | null
     updated_at?: string | null
+  }>
+    ventas: Array<{
+    id: number
+    tipo_venta: string
+    tipo_venta_label?: string | null
+    monto_con_iva: number
+    iva_monto: number
+    monto_sin_iva: number
+    appointment_id?: number | null
+    call_id?: number | null
+    created_at: string | null
   }>
   historial: Array<{
     id: number
@@ -264,11 +278,23 @@ export function ProspectoDetailDialog({
                     <Card>
                       <CardContent className="p-4 space-y-3">
                         <div>
-                          <div className="text-xs text-muted-foreground">Venta</div>
+                          <div className="text-xs text-muted-foreground">Total vendido (sin IVA)</div>
                           <div className="font-medium mt-1">
                             {p.venta_monto_sin_iva != null
-                              ? `$${p.venta_monto_sin_iva} · ${fmtDate(p.venta_fecha)}`
+                              ? `$${Number(p.venta_monto_sin_iva).toLocaleString("es-MX")} MXN`
                               : "—"}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {detail?.resumen?.ventas_count
+                              ? `${detail.resumen.ventas_count} venta${detail.resumen.ventas_count === 1 ? "" : "s"} registradas`
+                              : "Sin ventas registradas"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-muted-foreground">Última venta</div>
+                          <div className="font-medium mt-1">
+                            {p.venta_fecha ? fmtDate(p.venta_fecha) : "—"}
                           </div>
                         </div>
 
@@ -388,7 +414,56 @@ export function ProspectoDetailDialog({
                       </CardContent>
                     </Card>
                   </div>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Ventas
+                      </div>
 
+                      <div className="space-y-3">
+                        {(detail?.ventas ?? []).length === 0 ? (
+                          <div className="text-sm text-muted-foreground">Sin ventas registradas.</div>
+                        ) : (
+                          detail!.ventas.map((venta, idx) => (
+                            <div key={venta.id} className="rounded-md border p-3">
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="font-medium">
+                                  Venta #{(detail?.ventas?.length ?? 0) - idx} · {venta.tipo_venta_label ?? venta.tipo_venta}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {fmtDate(venta.created_at)}
+                                </div>
+                              </div>
+
+                              <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
+                                <div>
+                                  <div className="text-xs text-muted-foreground">Con IVA</div>
+                                  <div className="font-medium">
+                                    ${Number(venta.monto_con_iva).toLocaleString("es-MX")} MXN
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="text-xs text-muted-foreground">IVA</div>
+                                  <div className="font-medium">
+                                    ${Number(venta.iva_monto).toLocaleString("es-MX")} MXN
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="text-xs text-muted-foreground">Sin IVA</div>
+                                  <div className="font-medium">
+                                    ${Number(venta.monto_sin_iva).toLocaleString("es-MX")} MXN
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                   <Card>
                     <CardContent className="p-4">
                       <div className="text-sm font-medium mb-3 flex items-center gap-2">

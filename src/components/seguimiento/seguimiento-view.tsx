@@ -45,6 +45,8 @@ type SeguimientoItem = {
   id: number
   nombre: string
   numero: string
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+forma_obtencion?: string | null
   estado: string
   venta_monto_sin_iva: number | null
   venta_fecha: string | null
@@ -62,6 +64,40 @@ type HistItem = {
   created_at: string
   detalle: string | null
   user: { id: number; email: string }
+}
+
+type SeguimientoSaleItem = {
+  id: number
+  tipo_venta: string
+  tipo_venta_label?: string | null
+  monto_con_iva: number
+  iva_monto: number
+  monto_sin_iva: number
+  appointment_id?: number | null
+  call_id?: number | null
+  created_at: string | null
+}
+
+type SeguimientoDetailResponse = {
+  prospecto: {
+    id: number
+    nombre: string
+    numero: string
+    observaciones?: string | null
+    estado: string
+    estado_label?: string | null
+    forma_obtencion?: string | null
+    venta_monto_sin_iva?: number | null
+    venta_fecha?: string | null
+    venta_tipo?: string | null
+    venta_tipo_label?: string | null
+    created_at?: string | null
+  }
+  resumen: {
+    ventas_count: number
+    ventas_total_sin_iva: number
+  }
+  ventas: SeguimientoSaleItem[]
 }
 
 // ✅ acting-as-user header (si existe)
@@ -162,22 +198,87 @@ function normalizeObsDetalle(detalle: string | null) {
   return detalle.trim()
 }
 
+function getSeguimientoStatusUI(
+  item: Pick<SeguimientoItem, "seguimiento_activo" | "seguimiento_pausado">
+) {
+  if (item.seguimiento_activo) {
+    return {
+      key: "activo" as const,
+      label: "Seguimiento activo",
+      shortLabel: "Activo",
+      badgeClass: "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400",
+      cardClass: "border-green-500/30 bg-green-500/5",
+      dotClass: "bg-green-500",
+    }
+  }
+
+  if (item.seguimiento_pausado) {
+    return {
+      key: "pausado" as const,
+      label: "Seguimiento pausado",
+      shortLabel: "Pausado",
+      badgeClass: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
+      cardClass: "border-red-500/30 bg-red-500/5",
+      dotClass: "bg-red-500",
+    }
+  }
+
+  return {
+    key: "pendiente" as const,
+    label: "Pendiente de iniciar",
+    shortLabel: "Pendiente",
+    badgeClass: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    cardClass: "border-yellow-500/30 bg-yellow-500/5",
+    dotClass: "bg-yellow-500",
+  }
+}
+
 export function SeguimientoView() {
   const [items, setItems] = useState<SeguimientoItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"todos" | "activo" | "pendiente" | "pausado">("todos")
   const [resumeProspect, setResumeProspect] = useState<SeguimientoItem | null>(null)
   const todayYMD = useMemo(() => getTodayYMD(), [])
   // detalle
   const [openProspectId, setOpenProspectId] = useState<number | null>(null)
   const selected = useMemo(() => items.find((x) => x.id === openProspectId) ?? null, [items, openProspectId])
+const activos = useMemo(() => items.filter((p) => !!p.seguimiento_activo), [items])
+
+const pendientesInicio = useMemo(
+  () => items.filter((p) => !p.seguimiento_activo && !p.seguimiento_pausado),
+  [items]
+)
+
+const pausados = useMemo(
+  () => items.filter((p) => !p.seguimiento_activo && !!p.seguimiento_pausado),
+  [items]
+)
+
+const selectedSeguimientoUi = useMemo(
+  () => (selected ? getSeguimientoStatusUI(selected) : null),
+  [selected]
+)
+
+const visibleCount = useMemo(() => {
+  if (statusFilter === "activo") return activos.length
+  if (statusFilter === "pendiente") return pendientesInicio.length
+  if (statusFilter === "pausado") return pausados.length
+  return items.length
+}, [statusFilter, activos.length, pendientesInicio.length, pausados.length, items.length])
+
+const showActivosSection = statusFilter === "todos" || statusFilter === "activo"
+const showPendientesSection = statusFilter === "todos" || statusFilter === "pendiente"
+const showPausadosSection = statusFilter === "todos" || statusFilter === "pausado"
 
   // mini-historial SOLO observaciones
   const [obsHist, setObsHist] = useState<HistItem[]>([])
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
-
+  const [detailData, setDetailData] = useState<SeguimientoDetailResponse | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
   // modales de acciones
   const [modal, setModal] = useState<null | { type: "llamada" | "observacion"; prospect: SeguimientoItem }>(null)
   const [saving, setSaving] = useState(false)
@@ -187,7 +288,10 @@ const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
   const [formFecha, setFormFecha] = useState("")
   const [formHora, setFormHora] = useState("")
   const [formObs, setFormObs] = useState("")
-
+const selectedDetailProspect = detailData?.prospecto ?? null
+const selectedVentas = detailData?.ventas ?? []
+const selectedVentasCount = detailData?.resumen?.ventas_count ?? 0
+const selectedVentasTotal = detailData?.resumen?.ventas_total_sin_iva ?? selected?.venta_monto_sin_iva ?? 0
   const resetForms = () => {
     setFormFecha("")
     setFormHora("")
@@ -224,6 +328,20 @@ const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
     }
   }
 
+  const fetchProspectDetail = async (prospectId: number) => {
+    setDetailLoading(true)
+    setDetailError(null)
+    try {
+      const data = await apiGet(`/prospects/${prospectId}/detalle`)
+      setDetailData(data as SeguimientoDetailResponse)
+    } catch (e: any) {
+      setDetailError(e?.message || "Error cargando detalle del cliente")
+      setDetailData(null)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchSeguimiento("")
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,10 +356,14 @@ const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (openProspectId) {
       fetchObsHistory(openProspectId)
+      fetchProspectDetail(openProspectId)
     } else {
       setObsHist([])
       setObsError(null)
       setObsLoading(false)
+      setDetailData(null)
+      setDetailError(null)
+      setDetailLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openProspectId])
@@ -314,7 +436,6 @@ const reanudarSeguimiento = async (payload: { fecha: string; hora: string }) => 
 }
 
 const openProgramarLlamada = (p: SeguimientoItem) => {
-  if (p.seguimiento_activo) return
   resetForms()
   setModal({ type: "llamada", prospect: p })
 }
@@ -368,7 +489,196 @@ if (modal.type === "llamada") {
       setSaving(false)
     }
   }
+const renderSeguimientoSection = (
+  title: string,
+  description: string,
+  tone: "green" | "yellow" | "red",
+  sectionItems: SeguimientoItem[]
+) => {
+  const tones =
+    tone === "green"
+      ? {
+          wrap: "border-green-500/30 bg-green-500/5",
+          badge: "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400",
+          dot: "bg-green-500",
+        }
+      : tone === "yellow"
+        ? {
+            wrap: "border-yellow-500/30 bg-yellow-500/5",
+            badge: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+            dot: "bg-yellow-500",
+          }
+        : {
+            wrap: "border-red-500/30 bg-red-500/5",
+            badge: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
+            dot: "bg-red-500",
+          }
 
+  return (
+    <section className="space-y-3">
+      <div className={`rounded-xl border px-3 py-3 sm:px-4 ${tones.wrap}`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${tones.dot}`} />
+              <h2 className="text-sm sm:text-base font-semibold text-foreground">{title}</h2>
+            </div>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{description}</p>
+          </div>
+
+          <Badge variant="outline" className={`w-fit ${tones.badge}`}>
+            {sectionItems.length} {sectionItems.length === 1 ? "cliente" : "clientes"}
+          </Badge>
+        </div>
+      </div>
+
+      {sectionItems.length > 0 ? (
+        <div className="grid gap-3 sm:gap-4">
+          {sectionItems.map((p) => {
+            const seguimientoActivo = !!p.seguimiento_activo
+            const seguimientoPausado = !!p.seguimiento_pausado
+            const statusUi = getSeguimientoStatusUI(p)
+
+            return (
+              <Card
+                key={p.id}
+                className={`hover:border-primary/50 transition-colors cursor-pointer ${statusUi.cardClass}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenProspectId(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setOpenProspectId(p.id)
+                }}
+              >
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                            {p.nombre}
+                          </h3>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary" className="max-w-[220px] truncate">
+                              {p.numero}
+                            </Badge>
+
+                            <Badge variant="outline" className={`text-[11px] sm:text-xs ${statusUi.badgeClass}`}>
+                              {statusUi.shortLabel}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" aria-label="Acciones" className="h-9 w-9">
+                                <MoreVertical className="h-5 w-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+
+                              <DropdownMenuItem
+                                disabled={seguimientoActivo || saving}
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  if (seguimientoActivo) return
+                                  iniciarSeguimiento(p)
+                                }}
+                              >
+                                <PlayCircle className="h-4 w-4 mr-2" />
+                                {seguimientoPausado ? "Reanudar seguimiento" : "Iniciar seguimiento"}
+                              </DropdownMenuItem>
+
+<DropdownMenuItem
+  disabled={saving}
+  onSelect={(e) => {
+    e.preventDefault()
+    openProgramarLlamada(p)
+  }}
+>
+                                <Phone className="h-4 w-4 mr-2" />
+                                Programar llamada
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                disabled={!seguimientoActivo || seguimientoPausado || saving}
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  if (!seguimientoActivo || seguimientoPausado) return
+                                  pausarSeguimiento(p)
+                                }}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Pausar seguimiento
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                disabled={saving}
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  openObservacion(p)
+                                }}
+                              >
+                                <StickyNote className="h-4 w-4 mr-2" />
+                                Agregar observación
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <DollarSign className="h-4 w-4 shrink-0" />
+                          <span className="font-medium truncate">
+                            {p.venta_monto_sin_iva != null
+                              ? `$${Number(p.venta_monto_sin_iva).toLocaleString()} MXN (sin IVA)`
+                              : "—"}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground sm:text-right">
+                          Próxima llamada: {formatFechaCorta(p.proxima_llamada)}{" "}
+                          {p.proxima_llamada ? `• ${formatHora(p.proxima_llamada)}` : ""}
+                        </p>
+                      </div>
+
+                      {p.observaciones ? (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          <span className="font-medium text-foreground">Notas:</span> {p.observaciones}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">Sin observaciones</p>
+                      )}
+
+                      {p.forma_obtencion ? (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+                          {p.forma_obtencion}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            No hay clientes en esta sección.
+          </CardContent>
+        </Card>
+      )}
+    </section>
+  )
+}
   return (
     <AppLayout>
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
@@ -379,20 +689,78 @@ if (modal.type === "llamada") {
 
         <Card className="mb-3 sm:mb-4">
           <CardHeader className="py-3 sm:py-4">
-            <CardTitle className="text-base sm:text-lg">Clientes en seguimiento</CardTitle>
-          </CardHeader>
+<CardTitle className="text-base sm:text-lg">Estado del seguimiento</CardTitle>          </CardHeader>
           <CardContent className="pt-0 space-y-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-xs sm:text-sm text-muted-foreground">{loading ? "Cargando..." : `${items.length} clientes`}</div>
-              <div className="w-full sm:w-[360px]">
-                <Input
-                  placeholder="Buscar por nombre o número…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-10"
-                />
-              </div>
-            </div>
+<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+  <div className="text-xs sm:text-sm text-muted-foreground">
+    {loading ? "Cargando..." : `${visibleCount} cliente${visibleCount === 1 ? "" : "s"}`}
+  </div>
+
+  <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant={statusFilter === "todos" ? "default" : "outline"}
+        onClick={() => setStatusFilter("todos")}
+        className="h-9"
+      >
+        Todos
+      </Button>
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => setStatusFilter("activo")}
+        className={`h-9 ${
+          statusFilter === "activo"
+            ? "border-green-500/30 bg-green-500/10 text-green-700 hover:bg-green-500/15 dark:text-green-400"
+            : ""
+        }`}
+      >
+        Activo
+      </Button>
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => setStatusFilter("pendiente")}
+        className={`h-9 ${
+          statusFilter === "pendiente"
+            ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/15 dark:text-yellow-400"
+            : ""
+        }`}
+      >
+        Pendiente
+      </Button>
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => setStatusFilter("pausado")}
+        className={`h-9 ${
+          statusFilter === "pausado"
+            ? "border-red-500/30 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-400"
+            : ""
+        }`}
+      >
+        Pausado
+      </Button>
+    </div>
+
+    <div className="w-full sm:w-[360px]">
+      <Input
+        placeholder="Buscar por nombre o número…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="h-10"
+      />
+    </div>
+  </div>
+</div>
             {error ? <div className="text-xs sm:text-sm text-red-500">{error}</div> : null}
           </CardContent>
         </Card>
@@ -401,144 +769,35 @@ if (modal.type === "llamada") {
           <Card>
             <CardContent className="p-4 sm:p-6 text-sm text-muted-foreground">Cargando seguimiento…</CardContent>
           </Card>
-        ) : items.length > 0 ? (
-          <div className="grid gap-3 sm:gap-4">
-            {items.map((p) => {
-const seguimientoActivo = !!p.seguimiento_activo
-const seguimientoPausado = !!p.seguimiento_pausado
-              return (
-                <Card
-                  key={p.id}
-                  className="hover:border-primary/50 transition-colors cursor-pointer"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setOpenProspectId(p.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") setOpenProspectId(p.id)
-                  }}
-                >
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{p.nombre}</h3>
+          ) : items.length > 0 ? (
+<div className="space-y-6">
+  {showActivosSection ? (
+    renderSeguimientoSection(
+      "Seguimiento activo",
+      "Clientes que actualmente tienen seguimiento corriendo.",
+      "green",
+      activos
+    )
+  ) : null}
 
-                            {/* ✅ solo 2 badges: numero + (activo | sin recordatorios) */}
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary" className="max-w-[220px] truncate">
-                                {p.numero}
-                              </Badge>
-{seguimientoActivo ? (
-  <Badge variant="secondary" className="text-[11px] sm:text-xs">
-    Seguimiento activo
-  </Badge>
-) : seguimientoPausado ? (
-  <Badge variant="outline" className="text-[11px] sm:text-xs">
-    Seguimiento pausado
-  </Badge>
-) : (
-  <Badge variant="outline" className="text-[11px] sm:text-xs">
-    Sin recordatorios
-  </Badge>
-)}
-                            </div>
-                          </div>
+  {showPendientesSection ? (
+    renderSeguimientoSection(
+      "Pendiente de iniciar",
+      "Clientes a los que todavía nunca se les ha iniciado el seguimiento.",
+      "yellow",
+      pendientesInicio
+    )
+  ) : null}
 
-                          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" aria-label="Acciones" className="h-9 w-9">
-                                  <MoreVertical className="h-5 w-5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-
-                              <DropdownMenuContent align="end" className="w-64">
-                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-<DropdownMenuSeparator />
-
-<DropdownMenuItem
-  disabled={seguimientoActivo || saving}
-  onSelect={(e) => {
-    e.preventDefault()
-    if (seguimientoActivo) return
-    iniciarSeguimiento(p)
-  }}
->
-  <PlayCircle className="h-4 w-4 mr-2" />
-  {seguimientoPausado ? "Reanudar seguimiento" : "Iniciar seguimiento"}
-</DropdownMenuItem>
-
-<DropdownMenuItem
-  disabled={seguimientoActivo || saving}
-  onSelect={(e) => {
-    e.preventDefault()
-    if (seguimientoActivo) return
-    openProgramarLlamada(p)
-  }}
->
-  <Phone className="h-4 w-4 mr-2" />
-  Programar llamada
-</DropdownMenuItem>
-
-<DropdownMenuItem
-  disabled={!seguimientoActivo || seguimientoPausado || saving}
-  onSelect={(e) => {
-    e.preventDefault()
-    if (!seguimientoActivo || seguimientoPausado) return
-    pausarSeguimiento(p)
-  }}
->
-  <XCircle className="h-4 w-4 mr-2" />
-  Pausar seguimiento
-</DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  disabled={saving}
-                                  onSelect={(e) => {
-                                    e.preventDefault()
-                                    openObservacion(p)
-                                  }}
-                                >
-                                  <StickyNote className="h-4 w-4 mr-2" />
-                                  Agregar observación
-                                </DropdownMenuItem>
-
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
-                          <div className="flex items-center gap-2 text-sm">
-                            <DollarSign className="h-4 w-4 shrink-0" />
-                            <span className="font-medium truncate">
-                              {p.venta_monto_sin_iva != null
-                                ? `$${Number(p.venta_monto_sin_iva).toLocaleString()} MXN (sin IVA)`
-                                : "—"}
-                            </span>
-                          </div>
-
-                          <p className="text-sm text-muted-foreground sm:text-right">
-                            Próxima llamada: {formatFechaCorta(p.proxima_llamada)}{" "}
-                            {p.proxima_llamada ? `• ${formatHora(p.proxima_llamada)}` : ""}
-                          </p>
-                        </div>
-
-                        {p.observaciones ? (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            <span className="font-medium text-foreground">Notas:</span> {p.observaciones}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">Sin observaciones</p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+  {showPausadosSection ? (
+    renderSeguimientoSection(
+      "Seguimiento inactivo",
+      "Clientes cuyo seguimiento ya fue iniciado antes, pero actualmente está pausado.",
+      "red",
+      pausados
+    )
+  ) : null}
+</div>
         ) : (
           <Card>
             <CardContent className="py-12 text-center">
@@ -578,30 +837,50 @@ const seguimientoPausado = !!p.seguimiento_pausado
                       <CardContent className="p-5 sm:p-6 space-y-4">
                         <div className="flex flex-col gap-2">
                           <div className="text-xs text-muted-foreground">Cliente</div>
-                          <div className="font-semibold text-2xl truncate">{selected.nombre}</div>
+                          <div className="font-semibold text-2xl truncate">
+  {selectedDetailProspect?.nombre ?? selected.nombre}
+</div>
 
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary" className="max-w-[320px] truncate">
-                              {selected.numero}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {selected.estado}
-                            </Badge>
-                          </div>
+<div className="mt-1 flex flex-wrap items-center gap-2">
+  <Badge variant="secondary" className="max-w-[320px] truncate">
+    {selectedDetailProspect?.numero ?? selected.numero}
+  </Badge>
+  <Badge variant="outline" className="text-xs">
+    {selected.estado}
+  </Badge>
+</div>
+                          {selectedSeguimientoUi ? (
+  <div className="flex flex-wrap items-center gap-2">
+    <Badge variant="outline" className={`text-xs ${selectedSeguimientoUi.badgeClass}`}>
+      {selectedSeguimientoUi.label}
+    </Badge>
+  </div>
+) : null}
+{(selectedDetailProspect?.forma_obtencion ?? selected.forma_obtencion) ? (
+  <div className="text-sm text-muted-foreground">
+    <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+    {selectedDetailProspect?.forma_obtencion ?? selected.forma_obtencion}
+  </div>
+) : null}
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="flex items-start gap-3 text-sm rounded-xl border p-4">
-                            <DollarSign className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                            <div className="min-w-0">
-                              <div className="text-muted-foreground text-xs">Venta (sin IVA)</div>
-                              <div className="font-medium truncate">
-                                {selected.venta_monto_sin_iva != null
-                                  ? `$${Number(selected.venta_monto_sin_iva).toLocaleString()} MXN`
-                                  : "—"}
-                              </div>
-                            </div>
-                          </div>
+<div className="flex items-start gap-3 text-sm rounded-xl border p-4">
+  <DollarSign className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+  <div className="min-w-0">
+    <div className="text-muted-foreground text-xs">Total vendido (sin IVA)</div>
+    <div className="font-medium truncate">
+      {selectedVentasTotal
+        ? `$${Number(selectedVentasTotal).toLocaleString("es-MX")} MXN`
+        : "—"}
+    </div>
+    <div className="text-xs text-muted-foreground mt-1">
+      {selectedVentasCount
+        ? `${selectedVentasCount} venta${selectedVentasCount === 1 ? "" : "s"} registradas`
+        : "Sin ventas registradas"}
+    </div>
+  </div>
+</div>
 
                           <div className="flex items-start gap-3 text-sm rounded-xl border p-4">
                             <CalendarIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
@@ -616,7 +895,62 @@ const seguimientoPausado = !!p.seguimiento_pausado
                         </div>
                       </CardContent>
                     </Card>
+<Card>
+  <CardContent className="p-5 sm:p-6">
+    <div className="flex items-center gap-2">
+      <DollarSign className="h-4 w-4 text-muted-foreground" />
+      <div className="text-sm font-semibold">Ventas</div>
+    </div>
 
+    <div className="mt-4">
+      {detailLoading ? (
+        <div className="text-sm text-muted-foreground">Cargando ventas…</div>
+      ) : detailError ? (
+        <div className="text-sm text-red-500">{detailError}</div>
+      ) : selectedVentas.length > 0 ? (
+        <div className="space-y-3">
+          {selectedVentas.map((venta, idx) => (
+            <div key={venta.id} className="rounded-xl border p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="font-medium text-sm">
+                  Venta #{selectedVentas.length - idx} · {venta.tipo_venta_label ?? venta.tipo_venta}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatFechaHoraBonita(venta.created_at)}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground">Con IVA</div>
+                  <div className="font-medium mt-1">
+                    ${Number(venta.monto_con_iva).toLocaleString("es-MX")} MXN
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground">IVA</div>
+                  <div className="font-medium mt-1">
+                    ${Number(venta.iva_monto).toLocaleString("es-MX")} MXN
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground">Sin IVA</div>
+                  <div className="font-medium mt-1">
+                    ${Number(venta.monto_sin_iva).toLocaleString("es-MX")} MXN
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground italic">Sin ventas registradas</div>
+      )}
+    </div>
+  </CardContent>
+</Card>
                     <Card>
                       <CardContent className="p-5 sm:p-6">
                         <div className="flex items-center gap-2">
@@ -672,11 +1006,9 @@ disabled={saving || selected.seguimiento_activo}>
 <Button
   variant="outline"
   onClick={() => openProgramarLlamada(selected)}
-disabled={saving || selected.seguimiento_activo}>
+  disabled={saving}>
   <Phone className="h-4 w-4 mr-2" />
-{selected.seguimiento_activo
-  ? "Seguimiento activo"
-  : "Programar llamada"}
+  Programar llamada
 </Button>
 <Button
   variant="outline"

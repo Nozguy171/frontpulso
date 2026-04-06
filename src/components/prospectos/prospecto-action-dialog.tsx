@@ -117,6 +117,7 @@ const llamadaAmigoTimeInputRef = React.useRef<HTMLInputElement | null>(null)
   const [obsTexto, setObsTexto] = useState("")
 
   const disabled = loadingAction !== null
+  const hasVenta = Number(prospecto?.venta_monto_sin_iva ?? 0) > 0
   const openProgramarLlamadaPara = (p: ProspectoMini) => {
   setTargetAmigo(p)
   setLlamadaFecha(undefined)
@@ -165,6 +166,10 @@ const callAction = async (
   }
 }
 const handleAnexar = async () => {
+    if (hasVenta) {
+    alert("No puedes anexar un prospecto que ya tiene ventas registradas.")
+    return
+  }
   const ok = window.confirm(`¿Seguro que quieres anexar a ${prospecto?.nombre ?? "este prospecto"}?`)
   if (!ok) return
 
@@ -175,6 +180,10 @@ const handleAnexar = async () => {
   // ✅ antes: const handleRechazado = () => callAction("rechazado")
   // ✅ ahora: abre modal para capturar motivo
   const handleRechazadoClick = () => {
+      if (hasVenta) {
+    alert("No puedes rechazar un prospecto que ya tiene ventas registradas.")
+    return
+  }
     setRechazoMotivo("")
     setOpenRechazo(true)
   }
@@ -389,12 +398,12 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
               </Button>
 
               {/* ✅ Rechazado ahora pide motivo */}
-              <Button
-                variant="outline"
-                className="justify-start gap-3 bg-transparent h-11"
-                onClick={handleRechazadoClick}
-                disabled={disabled}
-              >
+<Button
+  variant="outline"
+  className="justify-start gap-3 bg-transparent h-11"
+  onClick={handleRechazadoClick}
+  disabled={disabled || hasVenta}
+>
                 <XCircle className="h-5 w-5 text-destructive" />
                 Rechazado
               </Button>
@@ -430,12 +439,12 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
                 Añadir observaciones
               </Button>
 
-                <Button
-    variant="outline"
-    className="justify-start gap-3 bg-transparent h-11 text-destructive"
-    onClick={handleAnexar}
-    disabled={disabled}
-  >
+<Button
+  variant="outline"
+  className="justify-start gap-3 bg-transparent h-11 text-destructive"
+  onClick={handleAnexar}
+  disabled={disabled || hasVenta}
+>
     <XCircle className="h-5 w-5" />
     Anexar
   </Button>

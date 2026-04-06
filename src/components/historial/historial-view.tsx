@@ -15,6 +15,8 @@ type ProspectDTO = {
   id: number
   nombre: string
   numero: string
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+forma_obtencion?: string | null
   observaciones?: string | null
   estado: string
   created_at: string
@@ -24,6 +26,8 @@ type ProspectLite = {
   id: number
   nombre: string
   numero: string
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+forma_obtencion?: string | null
   estado: string
   observaciones?: string | null
 }
@@ -224,6 +228,8 @@ export function HistorialView() {
           id: p.id,
           nombre: p.nombre,
           numero: p.numero,
+          forma_obtencion_tipo: p.forma_obtencion_tipo,
+forma_obtencion: p.forma_obtencion,
           estado: p.estado,
           observaciones: p.observaciones,
         }))
@@ -582,7 +588,12 @@ export function HistorialView() {
                           </div>
 
                           <div className="text-sm text-muted-foreground">{modalData.prospect.numero}</div>
-
+{modalData.prospect.forma_obtencion ? (
+  <div className="text-sm text-muted-foreground">
+    <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+    {modalData.prospect.forma_obtencion}
+  </div>
+) : null}
                           {modalData.prospect.observaciones ? (
                             <div className="text-sm">
                               <div className="font-medium mb-1">Notas</div>

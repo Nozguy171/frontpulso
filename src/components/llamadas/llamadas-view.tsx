@@ -42,6 +42,8 @@ prospect?: {
   id: number
   nombre: string
   numero: string
+  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion?: string | null
   estado?: string | null
   venta_monto_sin_iva?: number | null
 } | null}
@@ -110,6 +112,37 @@ function ymd(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
+}
+function addDays(base: Date, days: number) {
+  const d = new Date(base)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function startOfToday() {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function parseYMDLocal(value: string) {
+  const [y, m, d] = value.split("-").map(Number)
+  return new Date(y, (m || 1) - 1, d || 1)
+}
+
+function normalizeYmdRange(a: string, b: string) {
+  if (a <= b) return { from: a, to: b }
+  return { from: b, to: a }
+}
+
+function mergeUniqueLlamadas(groups: LlamadaDTO[][]) {
+  const map = new Map<number, LlamadaDTO>()
+  for (const group of groups) {
+    for (const item of group) {
+      map.set(item.id, item)
+    }
+  }
+  return Array.from(map.values())
 }
 
 function formatDiaLargo(d?: Date) {
@@ -266,7 +299,18 @@ function getCallStatusVisual(estado?: string | null) {
 function getAutor(h: HistoryItemDTO) {
   return h.effective?.email || h.user?.email || h.actor?.email || "—"
 }
+function hasLlamadaActions(llamada: LlamadaDTO) {
+  return (llamada.estado || "").toLowerCase() === "pendiente"
+}
 
+function sortLlamadasActionableFirst(a: LlamadaDTO, b: LlamadaDTO) {
+  const aHasActions = hasLlamadaActions(a) ? 0 : 1
+  const bHasActions = hasLlamadaActions(b) ? 0 : 1
+
+  if (aHasActions !== bHasActions) return aHasActions - bHasActions
+
+  return +new Date(a.fecha_hora) - +new Date(b.fecha_hora)
+}
 // rango del mes (LOCAL)
 function monthRange(base: Date) {
   const from = new Date(base.getFullYear(), base.getMonth(), 1)
@@ -293,6 +337,10 @@ function isSoldLikeCall(llamada: LlamadaDTO) {
 }
 
 function shouldHideCallManagementActions(llamada: LlamadaDTO) {
+  return isMonthlyFollowupCall(llamada)
+}
+
+function shouldHideCallRejectLikeActions(llamada: LlamadaDTO) {
   return isMonthlyFollowupCall(llamada) || isSoldLikeCall(llamada)
 }
 function LlamadaActionsMenu({
@@ -431,17 +479,28 @@ export function LlamadasView() {
   const [loadingDay, setLoadingDay] = useState(false)
   const [errorDay, setErrorDay] = useState<string | null>(null)
 
-  const [search, setSearch] = useState("")
-
-  const [openLlamadaId, setOpenLlamadaId] = useState<number | null>(null)
+const [search, setSearch] = useState("")
+const todayYMD = useMemo(() => ymd(startOfToday()), [])
+const [listFromDate, setListFromDate] = useState(todayYMD)
+const [listToDate, setListToDate] = useState(todayYMD)
+const [openLlamadaId, setOpenLlamadaId] = useState<number | null>(null)
 
   const selectedLlamada = useMemo(
     () => llamadas.find((c) => c.id === openLlamadaId) ?? llamadasDelDia.find((c) => c.id === openLlamadaId) ?? null,
     [openLlamadaId, llamadas, llamadasDelDia]
   )
 
-  const openLlamada = (id: number) => setOpenLlamadaId(id)
+const openLlamada = (id: number) => setOpenLlamadaId(id)
 
+const normalizedListRange = useMemo(
+  () => normalizeYmdRange(listFromDate || todayYMD, listToDate || todayYMD),
+  [listFromDate, listToDate, todayYMD]
+)
+
+const overduePendingToYMD = useMemo(
+  () => ymd(addDays(parseYMDLocal(normalizedListRange.from), -1)),
+  [normalizedListRange.from]
+)
   // ✅ amigos
   const [amigosData, setAmigosData] = useState<AmigosResponse | null>(null)
   const [loadingAmigos, setLoadingAmigos] = useState(false)
@@ -544,14 +603,19 @@ export function LlamadasView() {
   const [formMontoConIva, setFormMontoConIva] = useState("")
   const [formIvaMonto, setFormIvaMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
-    const montoConIvaNum = Number(formMontoConIva)
-  const ivaMontoNum = Number(formIvaMonto)
+const montoConIvaNum = Number(formMontoConIva)
+const ivaPorcentajeNum = Number(formIvaMonto)
 
-  const montoSinIvaCalculado = useMemo(() => {
-    if (!formMontoConIva || !formIvaMonto) return null
-    if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaMontoNum)) return null
-    return montoConIvaNum - ivaMontoNum
-  }, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaMontoNum])
+const montoSinIvaCalculado = useMemo(() => {
+  if (!formMontoConIva || !formIvaMonto) return null
+  if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaPorcentajeNum)) return null
+  if (ivaPorcentajeNum < 0) return null
+
+  const divisor = 1 + ivaPorcentajeNum / 100
+  if (!Number.isFinite(divisor) || divisor <= 0) return null
+
+  return montoConIvaNum / divisor
+}, [formMontoConIva, formIvaMonto, montoConIvaNum, ivaPorcentajeNum])
 
 const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
 const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
@@ -570,25 +634,33 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     setFormMotivo("")
   }
   const refreshAll = async () => {
-    const today = ymd(new Date())
-    const base = visibleMonth ?? new Date()
-    const { from, to } = monthRange(base)
+  const base = visibleMonth ?? new Date()
+  const { from, to } = monthRange(base)
 
-const [listData, daysData, dayData] = await Promise.all([
-  apiGet(`/calls/?from=${encodeURIComponent(today)}&estado=pendiente&limit=200`),
-  apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
-  date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ llamadas: [] }),
-])
+  const [rangeData, overduePendingData, daysData, dayData] = await Promise.all([
+    apiGet(
+      `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
+        normalizedListRange.to
+      )}&limit=200`
+    ),
+    apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
+    apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
+    date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ llamadas: [] }),
+  ])
 
-    setLlamadas((listData.llamadas || []) as LlamadaDTO[])
+  setLlamadas(
+    mergeUniqueLlamadas([
+      (overduePendingData.llamadas || []) as LlamadaDTO[],
+      (rangeData.llamadas || []) as LlamadaDTO[],
+    ])
+  )
 
-    const s = new Set<string>()
-    for (const d of (daysData.days || []) as any[]) s.add(d.day)
-    setDiasConLlamadasSet(s)
+  const s = new Set<string>()
+  for (const d of (daysData.days || []) as any[]) s.add(d.day)
+  setDiasConLlamadasSet(s)
 
-    setLlamadasDelDia((dayData.llamadas || []) as LlamadaDTO[])
-  }
-
+  setLlamadasDelDia((dayData.llamadas || []) as LlamadaDTO[])
+}
 const onLlamadaAction = (
   action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "sin_respuesta" | "observaciones" | "ver_amigos",
   llamada: LlamadaDTO
@@ -619,6 +691,11 @@ const onLlamadaAction = (
 
     if (!llamada?.prospect?.id) {
       alert("Esta llamada no tiene prospecto asociado. No se puede ejecutar esta acción.")
+      return
+    }
+
+        if (isSoldLikeCall(llamada) && (action === "rechazado" || action === "sin_respuesta")) {
+      alert("No puedes marcar como rechazado o sin respuesta a un prospecto que ya tiene ventas.")
       return
     }
 
@@ -734,33 +811,46 @@ if (action === "ver_amigos") {
           alert("Debes elegir si la venta fue a contado o a crédito")
           return
         }
+const montoConIva = Number(formMontoConIva)
+const ivaPorcentaje = Number(formIvaMonto)
 
-        const montoConIva = Number(formMontoConIva)
-        const ivaMonto = Number(formIvaMonto)
-        const montoSinIva = montoConIva - ivaMonto
+if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
+  alert("Ingresa un precio con IVA válido")
+  return
+}
 
-        if (!Number.isFinite(montoConIva) || montoConIva <= 0) {
-          alert("Ingresa un precio con IVA válido")
-          return
-        }
+if (!Number.isFinite(ivaPorcentaje) || ivaPorcentaje < 0) {
+  alert("Ingresa un IVA válido")
+  return
+}
 
-        if (!Number.isFinite(ivaMonto) || ivaMonto < 0) {
-          alert("Ingresa un IVA válido")
-          return
-        }
+const divisor = 1 + ivaPorcentaje / 100
 
-        if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
-          alert("El precio sin IVA debe ser mayor a 0")
-          return
-        }
+if (!Number.isFinite(divisor) || divisor <= 0) {
+  alert("Ingresa un IVA válido")
+  return
+}
 
-        await apiPost(`/prospects/${prospectId}/acciones`, {
-          accion: "vendido",
-          call_id: actionOpen.llamada.id,
-          tipo_venta: formTipoVenta,
-          monto_con_iva: montoConIva,
-          iva_monto: ivaMonto,
-        })
+const montoSinIva = montoConIva / divisor
+const ivaMontoCalculado = montoConIva - montoSinIva
+
+if (!Number.isFinite(montoSinIva) || montoSinIva <= 0) {
+  alert("El precio sin IVA debe ser mayor a 0")
+  return
+}
+
+if (!Number.isFinite(ivaMontoCalculado) || ivaMontoCalculado < 0) {
+  alert("El IVA calculado no es válido")
+  return
+}
+
+await apiPost(`/prospects/${prospectId}/acciones`, {
+  accion: "vendido",
+  call_id: actionOpen.llamada.id,
+  tipo_venta: formTipoVenta,
+  monto_con_iva: montoConIva,
+  iva_monto: Number(ivaMontoCalculado.toFixed(2)),
+})
       }
 
 if (actionOpen.type === "rechazado") {
@@ -790,30 +880,41 @@ if (actionOpen.type === "rechazado") {
   }
 
   // ====== Fetch lista/días/día ======
-  useEffect(() => {
-    let cancelled = false
-    setLoadingList(true)
-    setErrorList(null)
+useEffect(() => {
+  let cancelled = false
+  setLoadingList(true)
+  setErrorList(null)
 
-    const today = ymd(new Date())
+  Promise.all([
+    apiGet(
+      `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
+        normalizedListRange.to
+      )}&limit=200`
+    ),
+    apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
+  ])
+    .then(([rangeData, overduePendingData]) => {
+      if (cancelled) return
 
-apiGet(`/calls/?from=${encodeURIComponent(today)}&estado=pendiente&limit=200`)  
-   .then((data) => {
-        if (cancelled) return
-        setLlamadas((data.llamadas || []) as LlamadaDTO[])
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setErrorList(e.message || "Error cargando llamadas")
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingList(false)
-      })
+      setLlamadas(
+        mergeUniqueLlamadas([
+          (overduePendingData.llamadas || []) as LlamadaDTO[],
+          (rangeData.llamadas || []) as LlamadaDTO[],
+        ])
+      )
+    })
+    .catch((e) => {
+      if (cancelled) return
+      setErrorList(e.message || "Error cargando llamadas")
+    })
+    .finally(() => {
+      if (!cancelled) setLoadingList(false)
+    })
 
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  return () => {
+    cancelled = true
+  }
+}, [normalizedListRange.from, normalizedListRange.to, overduePendingToYMD])
 
   useEffect(() => {
     let cancelled = false
@@ -869,19 +970,17 @@ apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`)      .then((data) => {
   }, [date])
 
   // ====== Derived ======
-  const llamadasOrdenadas = useMemo(() => {
-    return [...llamadas].sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
-  }, [llamadas])
+const llamadasOrdenadas = useMemo(() => {
+  return [...llamadas].sort(sortLlamadasActionableFirst)
+}, [llamadas])
 
 const llamadasListFiltradas = useMemo(() => {
-  const soloActuales = llamadasOrdenadas.filter(
-    (c) => c.estado === "pendiente" && isUpcomingCall(c.fecha_hora)
-  )
+  const base = llamadasOrdenadas
 
   const q = search.trim().toLowerCase()
-  if (!q) return soloActuales
+  if (!q) return base
 
-  return soloActuales.filter((c) => {
+  return base.filter((c) => {
     const nombre = c.prospect?.nombre ?? ""
     const numero = c.prospect?.numero ?? ""
     const obs = c.observaciones ?? ""
@@ -920,20 +1019,64 @@ const llamadasListFiltradas = useMemo(() => {
           <TabsContent value="list" className="space-y-4">
             <Card>
               <CardHeader className="py-4">
-                <CardTitle className="text-lg">Próximas llamadas</CardTitle>
+<CardTitle className="text-lg">Llamadas por rango</CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-3">
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                  <div className="text-sm text-muted-foreground">
-{loadingList ? "Cargando..." : `${llamadasListFiltradas.length} llamadas`}                  </div>
-                  <div className="w-full sm:w-[360px]">
-                    <Input
-                      placeholder="Buscar por nombre, número u observaciones…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
+<div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+  <div className="text-sm text-muted-foreground">
+    {loadingList ? "Cargando..." : `${llamadasListFiltradas.length} llamadas visibles`}
+  </div>
+
+  <div className="flex w-full flex-col gap-3 xl:w-auto">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <div className="w-full">
+        <div className="text-[11px] text-muted-foreground mb-1">Desde</div>
+        <Input
+          type="date"
+          value={listFromDate}
+          onChange={(e) => setListFromDate(e.target.value || todayYMD)}
+          className="dark:[color-scheme:dark]"
+        />
+      </div>
+
+      <div className="w-full">
+        <div className="text-[11px] text-muted-foreground mb-1">Hasta</div>
+        <Input
+          type="date"
+          value={listToDate}
+          onChange={(e) => setListToDate(e.target.value || todayYMD)}
+          className="dark:[color-scheme:dark]"
+        />
+      </div>
+
+      <div className="flex items-end">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => {
+            setListFromDate(todayYMD)
+            setListToDate(todayYMD)
+          }}
+        >
+          Solo hoy
+        </Button>
+      </div>
+    </div>
+
+    <div className="text-[11px] text-muted-foreground">
+      También se incluyen llamadas pendientes atrasadas sin finalizar.
+    </div>
+
+    <div className="w-full xl:w-[360px]">
+      <Input
+        placeholder="Buscar por nombre, número u observaciones…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+  </div>
+</div>
                 {errorList ? <div className="text-sm text-red-500">{errorList}</div> : null}
               </CardContent>
             </Card>
@@ -984,9 +1127,9 @@ const llamadasListFiltradas = useMemo(() => {
               {llamada.estado === "pendiente" ? (
 <LlamadaActionsMenu
   allowManagementActions={!shouldHideCallManagementActions(llamada)}
-  allowRejectLike={!shouldHideCallManagementActions(llamada)}
+  allowRejectLike={!shouldHideCallRejectLikeActions(llamada)}
   onAction={(a) => onLlamadaAction(a, llamada)}
-/>             ) : null}
+/>            ) : null}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
@@ -1010,7 +1153,12 @@ const llamadasListFiltradas = useMemo(() => {
                 <span className="line-clamp-2">{llamada.observaciones}</span>
               </div>
             ) : null}
-
+            {llamada.prospect?.forma_obtencion ? (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium">Forma de obtención:</span>{" "}
+                {llamada.prospect.forma_obtencion}
+              </div>
+            ) : null}
             {llamada.estado_detalle ? (
               <div className="text-xs text-muted-foreground">
                 {llamada.estado_detalle}
@@ -1026,7 +1174,7 @@ const llamadasListFiltradas = useMemo(() => {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground italic">No hay llamadas próximas.</p>
+                  <p className="text-muted-foreground italic">No hay llamadas en ese rango.</p>
                 </CardContent>
               </Card>
             )}
@@ -1080,10 +1228,10 @@ const llamadasListFiltradas = useMemo(() => {
                   </Card>
                 ) : llamadasDelDia.length > 0 ? (
                   <div className="grid gap-3 sm:gap-4">
-                    {llamadasDelDia
-                      .slice()
-                      .sort((a, b) => +new Date(a.fecha_hora) - +new Date(b.fecha_hora))
-                      .map((llamada) => (
+{llamadasDelDia
+  .slice()
+  .sort(sortLlamadasActionableFirst)
+  .map((llamada) => (
 <Card
   key={llamada.id}
   className={`hover:border-primary/50 transition-colors cursor-pointer ${getCallStatusVisual(llamada.estado).card}`}
@@ -1116,9 +1264,9 @@ const llamadasListFiltradas = useMemo(() => {
                                   {llamada.estado === "pendiente" ? (
 <LlamadaActionsMenu
   allowManagementActions={!shouldHideCallManagementActions(llamada)}
-  allowRejectLike={!shouldHideCallManagementActions(llamada)}
+  allowRejectLike={!shouldHideCallRejectLikeActions(llamada)}
   onAction={(a) => onLlamadaAction(a, llamada)}
-/>                                 ) : null}
+/>                                ) : null}
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
@@ -1138,6 +1286,12 @@ const llamadasListFiltradas = useMemo(() => {
                                     <span className="line-clamp-2">{llamada.observaciones}</span>
                                   </div>
                                 ) : null}
+                                {llamada.prospect?.forma_obtencion ? (
+  <div className="text-xs text-muted-foreground">
+    <span className="font-medium">Forma de obtención:</span>{" "}
+    {llamada.prospect.forma_obtencion}
+  </div>
+) : null}
                               </div>
                             </div>
                           </CardContent>
@@ -1205,6 +1359,12 @@ const llamadasListFiltradas = useMemo(() => {
   {selectedLlamada.estado_label ?? getCallStatusVisual(selectedLlamada.estado).labelFallback}
 </Badge>
                       </div>
+                      {selectedLlamada.prospect?.forma_obtencion ? (
+  <div className="text-sm text-muted-foreground mt-2">
+    <span className="font-medium text-foreground">Forma de obtención:</span>{" "}
+    {selectedLlamada.prospect.forma_obtencion}
+  </div>
+) : null}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 pt-1">
@@ -1405,10 +1565,10 @@ const llamadasListFiltradas = useMemo(() => {
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">IVA *</div>
+<div className="text-xs text-muted-foreground mb-1">IVA (%) *</div>
                   <Input
                     inputMode="decimal"
-                    placeholder="Ej: 1655.17"
+                    placeholder="Ej: 7.5"
                     value={formIvaMonto}
                     onChange={(e) => {
                       const raw = e.target.value
