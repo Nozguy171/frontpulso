@@ -318,12 +318,6 @@ export function RechazadosView() {
                         </div>
                       ) : null}
 
-                      {/* opcional: observaciones generales del prospecto */}
-                      {p.observaciones ? (
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-medium">Obs:</span> <span className="line-clamp-1">{p.observaciones}</span>
-                        </div>
-                      ) : null}
                       {p.forma_obtencion ? (
   <div className="text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span> {p.forma_obtencion}

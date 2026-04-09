@@ -171,6 +171,38 @@ function formatFechaHora(iso?: string | null) {
   return d.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
 }
 
+function isHistoryNoteLike(item: HistoryItemDTO) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim()
+  if (!detalle) return false
+
+  if (accion === "observaciones") return true
+  if (accion === "rechazado") return true
+  return false
+}
+
+function getHistoryNoteSource(item: HistoryItemDTO) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim().toLowerCase()
+
+  if (detalle.startsWith("[creacion]")) return "Creación"
+  if (detalle.startsWith("[manual]")) return "Manual"
+  if (detalle.startsWith("[cita]")) return "Cita"
+  if (detalle.startsWith("[llamada]")) return "Llamada"
+  if (detalle.startsWith("[rechazo]")) return "Rechazo"
+
+  if (accion === "rechazado") return "Rechazo"
+  if (accion === "observaciones") return "Nota"
+
+  return "Nota"
+}
+
+function getHistoryNoteText(item: HistoryItemDTO) {
+  return (item.detalle || "")
+    .replace(/^\[(creacion|manual|cita|llamada|rechazo)\]\s*/i, "")
+    .trim()
+}
+
 function getDiffMs(iso: string) {
   return new Date(iso).getTime() - Date.now()
 }
@@ -536,8 +568,7 @@ const overduePendingToYMD = useMemo(
       const items: HistoryItemDTO[] = (data?.historial || []) as any
 
       const notas = items
-        .filter((x) => (x?.accion || "").toLowerCase() === "observaciones")
-        .filter((x) => (x?.detalle || "").trim().length > 0)
+        .filter(isHistoryNoteLike)
         .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
 
       setProspectNotes(notas)
@@ -572,8 +603,7 @@ const overduePendingToYMD = useMemo(
         const items: HistoryItemDTO[] = (data?.historial || []) as any
 
         const notas = items
-          .filter((x) => (x?.accion || "").toLowerCase() === "observaciones")
-          .filter((x) => (x?.detalle || "").trim().length > 0)
+          .filter(isHistoryNoteLike)
           .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
 
         setProspectNotes(notas)
@@ -633,7 +663,7 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     setFormIvaMonto("")
     setFormMotivo("")
   }
-  const refreshAll = async () => {
+const refreshAll = async () => {
   const base = visibleMonth ?? new Date()
   const { from, to } = monthRange(base)
 
@@ -641,7 +671,7 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     apiGet(
       `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
         normalizedListRange.to
-      )}&limit=200`
+      )}&estado=pendiente&limit=200`
     ),
     apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
     apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
@@ -661,6 +691,7 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
 
   setLlamadasDelDia((dayData.llamadas || []) as LlamadaDTO[])
 }
+
 const onLlamadaAction = (
   action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "sin_respuesta" | "observaciones" | "ver_amigos",
   llamada: LlamadaDTO
@@ -811,6 +842,11 @@ if (action === "ver_amigos") {
           alert("Debes elegir si la venta fue a contado o a crédito")
           return
         }
+          if (!formFecha || !formHora) {
+    alert("Debes elegir la fecha y hora de la llamada postventa")
+    return
+  }
+
 const montoConIva = Number(formMontoConIva)
 const ivaPorcentaje = Number(formIvaMonto)
 
@@ -850,6 +886,8 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
   tipo_venta: formTipoVenta,
   monto_con_iva: montoConIva,
   iva_monto: Number(ivaMontoCalculado.toFixed(2)),
+  fecha: formFecha,
+  hora: formHora,
 })
       }
 
@@ -889,7 +927,7 @@ useEffect(() => {
     apiGet(
       `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
         normalizedListRange.to
-      )}&limit=200`
+      )}&estado=pendiente&limit=200`
     ),
     apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
   ])
@@ -1019,12 +1057,12 @@ const llamadasListFiltradas = useMemo(() => {
           <TabsContent value="list" className="space-y-4">
             <Card>
               <CardHeader className="py-4">
-<CardTitle className="text-lg">Llamadas por rango</CardTitle>
+<CardTitle className="text-lg">Llamadas pendientes por rango</CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-3">
 <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
   <div className="text-sm text-muted-foreground">
-    {loadingList ? "Cargando..." : `${llamadasListFiltradas.length} llamadas visibles`}
+{loadingList ? "Cargando..." : `${llamadasListFiltradas.length} llamadas pendientes visibles`}
   </div>
 
   <div className="flex w-full flex-col gap-3 xl:w-auto">
@@ -1146,13 +1184,6 @@ const llamadasListFiltradas = useMemo(() => {
                 <span className="truncate">Llamada programada</span>
               </div>
             </div>
-
-            {llamada.observaciones ? (
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <StickyNote className="h-4 w-4 mt-0.5" />
-                <span className="line-clamp-2">{llamada.observaciones}</span>
-              </div>
-            ) : null}
             {llamada.prospect?.forma_obtencion ? (
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium">Forma de obtención:</span>{" "}
@@ -1410,10 +1441,21 @@ const llamadasListFiltradas = useMemo(() => {
                           {prospectNotes.map((n) => (
                             <div key={n.id} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
-                                <div className="text-sm font-medium truncate">{getAutor(n)}</div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(n.created_at)}</div>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">{getAutor(n)}</div>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {getHistoryNoteSource(n)}
+                                  </Badge>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground">
+                                  {formatFechaHora(n.created_at)}
+                                </div>
                               </div>
-                              <div className="mt-2 text-sm whitespace-pre-wrap break-words">{n.detalle}</div>
+
+                              <div className="mt-2 text-sm whitespace-pre-wrap break-words">
+                                {getHistoryNoteText(n)}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1584,6 +1626,52 @@ const llamadasListFiltradas = useMemo(() => {
                     {montoSinIvaCalculado == null ? "—" : montoSinIvaCalculado.toFixed(2)}
                   </div>
                 </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Fecha de llamada postventa *</div>
+        <div className="relative">
+          <Input
+            ref={dateInputRef}
+            type="date"
+            min={ymd(new Date())}
+            value={formFecha}
+            onChange={(e) => setFormFecha(e.target.value)}
+            className="pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+            onClick={() => openNativePicker(dateInputRef)}
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Hora de llamada postventa *</div>
+        <div className="relative">
+          <Input
+            ref={timeInputRef}
+            type="time"
+            value={formHora}
+            onChange={(e) => setFormHora(e.target.value)}
+            className="pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+            onClick={() => openNativePicker(timeInputRef)}
+          >
+            <Clock className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
               </div>
             ) : null}
 

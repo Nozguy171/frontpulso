@@ -117,6 +117,7 @@ interface ProspectoDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onActionCompleted?: () => void
+  showActions?: boolean
 }
 
 function getActingAsUserId(): string | null {
@@ -139,12 +140,49 @@ function fmtDate(value?: string | null) {
     minute: "2-digit",
   })
 }
+function isHistoryNoteLike(item: DetailResponse["historial"][number]) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim()
+  if (!detalle) return false
+
+  if (accion === "observaciones") return true
+  if (accion === "rechazado") return true
+  return false
+}
+
+function getHistoryNoteSource(item: DetailResponse["historial"][number]) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim().toLowerCase()
+
+  if (detalle.startsWith("[creacion]")) return "Creación"
+  if (detalle.startsWith("[manual]")) return "Manual"
+  if (detalle.startsWith("[cita]")) return "Cita"
+  if (detalle.startsWith("[llamada]")) return "Llamada"
+  if (detalle.startsWith("[rechazo]")) return "Rechazo"
+
+  if (accion === "rechazado") return "Rechazo"
+  if (accion === "observaciones") return "Nota"
+
+  return "Nota"
+}
+
+function getHistoryNoteText(item: DetailResponse["historial"][number]) {
+  return (item.detalle || "")
+    .replace(/^Observaciones añadidas:\s*/i, "")
+    .replace(/^\[(creacion|manual|cita|llamada|rechazo)\]\s*/i, "")
+    .trim()
+}
+
+function getHistoryNoteAuthor(item: DetailResponse["historial"][number]) {
+  return item.effective?.email || item.actor?.email || "—"
+}
 
 export function ProspectoDetailDialog({
   prospecto,
   open,
   onOpenChange,
   onActionCompleted,
+  showActions = true,
 }: ProspectoDetailDialogProps) {
   const [loading, setLoading] = useState(false)
   const [detail, setDetail] = useState<DetailResponse | null>(null)
@@ -212,17 +250,17 @@ export function ProspectoDetailDialog({
                 </DialogDescription>
               </DialogHeader>
 
-              {p && (
-<Button
-  type="button"
-  variant="outline"
-  onClick={() => setOpenActions(true)}
-  className="shrink-0 mr-2 sm:mr-3"
->
-  <MoreVertical className="h-4 w-4 mr-2" />
-  Acciones
-</Button>
-              )}
+{p && showActions && (
+  <Button
+    type="button"
+    variant="outline"
+    onClick={() => setOpenActions(true)}
+    className="shrink-0 mr-2 sm:mr-3"
+  >
+    <MoreVertical className="h-4 w-4 mr-2" />
+    Acciones
+  </Button>
+)}
             </div>
           </div>
 
@@ -465,6 +503,47 @@ export function ProspectoDetailDialog({
                     </CardContent>
                   </Card>
                   <Card>
+  <CardContent className="p-4">
+    <div className="text-sm font-medium mb-3 flex items-center gap-2">
+      <FileText className="h-4 w-4" />
+      Historial de observaciones
+    </div>
+
+    <div className="space-y-3">
+      {(detail?.historial ?? []).filter(isHistoryNoteLike).length === 0 ? (
+        <div className="text-sm text-muted-foreground">Sin observaciones.</div>
+      ) : (
+        (detail?.historial ?? [])
+          .filter(isHistoryNoteLike)
+          .slice()
+          .reverse()
+          .map((h) => (
+            <div key={h.id} className="rounded-md border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {getHistoryNoteAuthor(h)}
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">
+                    {getHistoryNoteSource(h)}
+                  </Badge>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {fmtDate(h.created_at)}
+                </div>
+              </div>
+
+              <div className="text-sm mt-2 whitespace-pre-wrap break-words">
+                {getHistoryNoteText(h)}
+              </div>
+            </div>
+          ))
+      )}
+    </div>
+  </CardContent>
+</Card>
+                  <Card>
                     <CardContent className="p-4">
                       <div className="text-sm font-medium mb-3 flex items-center gap-2">
                         <Users className="h-4 w-4" />
@@ -508,18 +587,18 @@ export function ProspectoDetailDialog({
         </DialogContent>
       </Dialog>
 
-      {p && (
-        <ProspectoActionsDialog
-          prospecto={p}
-          open={openActions}
-          onOpenChange={setOpenActions}
-          onActionCompleted={() => {
-            setOpenActions(false)
-            onOpenChange(false)
-            onActionCompleted?.()
-          }}
-        />
-      )}
+{p && showActions && (
+  <ProspectoActionsDialog
+    prospecto={p}
+    open={openActions}
+    onOpenChange={setOpenActions}
+    onActionCompleted={() => {
+      setOpenActions(false)
+      onOpenChange(false)
+      onActionCompleted?.()
+    }}
+  />
+)}
     </>
   )
 }

@@ -298,12 +298,6 @@ export function AnexadosView() {
                         <AnexadoActionsMenu onAction={(a) => handleAction(a, p.id)} />
                       </div>
 
-                      {p.observaciones ? (
-                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <StickyNote className="h-4 w-4 mt-0.5" />
-                          <span className="line-clamp-2">{p.observaciones}</span>
-                        </div>
-                      ) : null}
                       {p.forma_obtencion ? (
   <div className="text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span> {p.forma_obtencion}
@@ -359,16 +353,6 @@ export function AnexadosView() {
                         </Badge>
                       </div>
                     </div>
-
-                    {selected.observaciones ? (
-                      <div className="flex items-start gap-2 text-sm sm:col-span-2">
-                        <StickyNote className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <div className="text-muted-foreground text-xs">Observaciones</div>
-                          <div className="whitespace-pre-wrap break-words">{selected.observaciones}</div>
-                        </div>
-                      </div>
-                    ) : null}
 {selected?.forma_obtencion ? (
   <div className="text-sm text-muted-foreground">
     <span className="font-medium text-foreground">Forma de obtención:</span>{" "}

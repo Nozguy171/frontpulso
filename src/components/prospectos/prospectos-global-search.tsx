@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
 
 type Prospecto = {
   id: number
@@ -25,6 +26,14 @@ type Prospecto = {
   recomendado_por_nombre?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
+  venta_monto_sin_iva?: number | null
+  venta_fecha?: string | null
+  rechazo_motivo?: string | null
+  rechazo_at?: string | null
+  rechazo_count?: number
+  seguimiento_pausado?: boolean
+  seguimiento_pausado_at?: string | null
+  created_at?: string
 }
 
 type ResumenEstado = {
@@ -79,11 +88,12 @@ export function ProspectosGlobalSearch({
 }: {
   onActionCompleted?: () => void
 }) {
-  const [query, setQuery] = useState("")
-  const [estado, setEstado] = useState("todos")
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<SearchResponse | null>(null)
+const [query, setQuery] = useState("")
+const [estado, setEstado] = useState("todos")
+const [open, setOpen] = useState(false)
+const [loading, setLoading] = useState(false)
+const [data, setData] = useState<SearchResponse | null>(null)
+const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
 
   const getAuthHeaders = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("pulso_token") : null
@@ -214,12 +224,14 @@ export function ProspectosGlobalSearch({
                   <Card key={prospecto.id} className="border-border/50 bg-card/80">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => setDetailProspecto(prospecto)}
+                        >
                           <div className="flex items-start gap-3 mb-3">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                               <User className="h-5 w-5 text-primary" />
                             </div>
-
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <h3 className="text-base sm:text-lg font-semibold truncate">
@@ -259,11 +271,6 @@ export function ProspectosGlobalSearch({
                               </span>
                             </div>
 
-                            {prospecto.observaciones ? (
-                              <div className="text-xs text-muted-foreground line-clamp-2">
-                                {prospecto.observaciones}
-                              </div>
-                            ) : null}
                           </div>
                         </div>
 
@@ -276,6 +283,18 @@ export function ProspectosGlobalSearch({
           </div>
         </DialogContent>
       </Dialog>
+
+<ProspectoDetailDialog
+  prospecto={detailProspecto}
+  open={!!detailProspecto}
+  onOpenChange={(open) => !open && setDetailProspecto(null)}
+  onActionCompleted={() => {
+    runSearch(estado)
+    setDetailProspecto(null)
+    onActionCompleted?.()
+  }}
+  showActions={false}
+/>
 
     </>
   )

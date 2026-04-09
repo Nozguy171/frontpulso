@@ -238,6 +238,38 @@ function getCitaStatusVisual(estado?: string | null) {
 function getAutor(h: HistoryItemDTO) {
   return h.effective?.email || h.user?.email || h.actor?.email || "—"
 }
+function isHistoryNoteLike(item: HistoryItemDTO) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim()
+  if (!detalle) return false
+
+  if (accion === "observaciones") return true
+  if (accion === "rechazado") return true
+  return false
+}
+
+function getHistoryNoteSource(item: HistoryItemDTO) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim().toLowerCase()
+
+  if (detalle.startsWith("[creacion]")) return "Creación"
+  if (detalle.startsWith("[manual]")) return "Manual"
+  if (detalle.startsWith("[cita]")) return "Cita"
+  if (detalle.startsWith("[llamada]")) return "Llamada"
+  if (detalle.startsWith("[rechazo]")) return "Rechazo"
+
+  if (accion === "rechazado") return "Rechazo"
+  if (accion === "observaciones") return "Nota"
+
+  return "Nota"
+}
+
+function getHistoryNoteText(item: HistoryItemDTO) {
+  return (item.detalle || "")
+    .replace(/^Observaciones añadidas:\s*/i, "")
+    .replace(/^\[(creacion|manual|cita|llamada|rechazo)\]\s*/i, "")
+    .trim()
+}
 function hasCitaActions(cita: CitaDTO) {
   return (cita.estado || "").toLowerCase() === "programada"
 }
@@ -395,10 +427,9 @@ export function CitasView() {
       const data = await apiGet(`/history/?prospect_id=${encodeURIComponent(String(prospectId))}&limit=200`)
       const items: HistoryItemDTO[] = (data?.historial || []) as any
 
-      const notas = items
-        .filter((x) => (x?.accion || "").toLowerCase() === "observaciones")
-        .filter((x) => (x?.detalle || "").trim().length > 0)
-        .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+    const notas = items
+      .filter(isHistoryNoteLike)
+      .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
 
       setProspectNotes(notas)
     } catch (e: any) {
@@ -431,8 +462,7 @@ export function CitasView() {
 
         const items: HistoryItemDTO[] = (data?.historial || []) as any
         const notas = items
-          .filter((x) => (x?.accion || "").toLowerCase() === "observaciones")
-          .filter((x) => (x?.detalle || "").trim().length > 0)
+          .filter(isHistoryNoteLike)
           .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
 
         setProspectNotes(notas)
@@ -490,25 +520,25 @@ const resetActionForms = () => {
   setFormIvaMonto("")
 }
 
-  const refreshAll = async () => {
-    const today = ymd(new Date())
-    const base = visibleMonth ?? new Date()
-    const { from, to } = monthRange(base)
+const refreshAll = async () => {
+  const today = ymd(new Date())
+  const base = visibleMonth ?? new Date()
+  const { from, to } = monthRange(base)
 
-const [listData, daysData, dayData] = await Promise.all([
-  apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`),
-  apiGet(`/appointments/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
-  date ? apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ citas: [] }),
-])
+  const [listData, daysData, dayData] = await Promise.all([
+    apiGet(`/appointments/?day=${encodeURIComponent(today)}&estado=programada&limit=200`),
+    apiGet(`/appointments/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
+    date ? apiGet(`/appointments/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ citas: [] }),
+  ])
 
-    setCitas((listData.citas || []) as CitaDTO[])
+  setCitas((listData.citas || []) as CitaDTO[])
 
-    const s = new Set<string>()
-    for (const d of (daysData.days || []) as any[]) s.add(d.day)
-    setDiasConCitasSet(s)
+  const s = new Set<string>()
+  for (const d of (daysData.days || []) as any[]) s.add(d.day)
+  setDiasConCitasSet(s)
 
-    setCitasDelDia((dayData.citas || []) as CitaDTO[])
-  }
+  setCitasDelDia((dayData.citas || []) as CitaDTO[])
+}
 
 const onCitaAction = (
   action: "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones",
@@ -596,6 +626,11 @@ if (actionOpen.type === "vendido") {
     alert("Debes elegir si la venta fue a contado o a crédito")
     return
   }
+    if (!formFecha || !formHora) {
+    alert("Debes elegir la fecha y hora de la llamada postventa")
+    return
+  }
+
 const montoConIva = Number(formMontoConIva)
 const ivaPorcentaje = Number(formIvaMonto)
 
@@ -635,6 +670,8 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
   tipo_venta: formTipoVenta,
   monto_con_iva: montoConIva,
   iva_monto: Number(ivaMontoCalculado.toFixed(2)),
+  fecha: formFecha,
+  hora: formHora,
 })
 }
 
@@ -676,30 +713,30 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
   }
 
   // ====== Fetch lista/días/día ======
-  useEffect(() => {
-    let cancelled = false
-    setLoadingList(true)
-    setErrorList(null)
+useEffect(() => {
+  let cancelled = false
+  setLoadingList(true)
+  setErrorList(null)
 
-const today = ymd(new Date())
+  const today = ymd(new Date())
 
-apiGet(`/appointments/?from=${encodeURIComponent(today)}&limit=200`)
+  apiGet(`/appointments/?day=${encodeURIComponent(today)}&estado=programada&limit=200`)
     .then((data) => {
-        if (cancelled) return
-        setCitas((data.citas || []) as CitaDTO[])
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setErrorList(e.message || "Error cargando citas")
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingList(false)
-      })
+      if (cancelled) return
+      setCitas((data.citas || []) as CitaDTO[])
+    })
+    .catch((e) => {
+      if (cancelled) return
+      setErrorList(e.message || "Error cargando citas")
+    })
+    .finally(() => {
+      if (!cancelled) setLoadingList(false)
+    })
 
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  return () => {
+    cancelled = true
+  }
+}, [])
 
   useEffect(() => {
     let cancelled = false
@@ -805,11 +842,12 @@ const citasListFiltradas = useMemo(() => {
           <TabsContent value="list" className="space-y-4">
             <Card>
               <CardHeader className="py-4">
-<CardTitle className="text-lg">Todas las citas</CardTitle>              </CardHeader>
+<CardTitle className="text-lg">Citas pendientes de hoy</CardTitle>       
+     </CardHeader>
               <CardContent className="pt-0 space-y-3">
                 <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
 <div className="text-sm text-muted-foreground">
-  {loadingList ? "Cargando..." : `${citasListFiltradas.length} citas`}
+{loadingList ? "Cargando..." : `${citasListFiltradas.length} citas pendientes de hoy`}
 </div>                  <div className="w-full sm:w-[360px]">
                     <Input placeholder="Buscar por nombre, número o ubicación…" value={search} onChange={(e) => setSearch(e.target.value)} />
                   </div>
@@ -877,12 +915,6 @@ const statusStyles = getCitaStatusVisual(cita.estado)
               </div>
             </div>
 
-            {cita.observaciones ? (
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <StickyNote className="h-4 w-4 mt-0.5" />
-                <span className="line-clamp-2">{cita.observaciones}</span>
-              </div>
-            ) : null}
 {cita.prospect?.forma_obtencion ? (
   <div className="text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span>{" "}
@@ -1143,10 +1175,21 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                           {prospectNotes.map((n) => (
                             <div key={n.id} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
-                                <div className="text-sm font-medium truncate">{getAutor(n)}</div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(n.created_at)}</div>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">{getAutor(n)}</div>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {getHistoryNoteSource(n)}
+                                  </Badge>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground">
+                                  {formatFechaHora(n.created_at)}
+                                </div>
                               </div>
-                              <div className="mt-2 text-sm whitespace-pre-wrap break-words">{n.detalle}</div>
+
+                              <div className="mt-2 text-sm whitespace-pre-wrap break-words">
+                                {getHistoryNoteText(n)}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1316,6 +1359,52 @@ const statusStyles = getCitaStatusVisual(cita.estado)
       <div className="text-xs text-muted-foreground mb-1">Precio sin IVA</div>
       <div className="text-lg font-semibold">
         {montoSinIvaCalculado == null ? "—" : montoSinIvaCalculado.toFixed(2)}
+      </div>
+    </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Fecha de llamada postventa *</div>
+        <div className="relative">
+          <Input
+            ref={dateInputRef}
+            type="date"
+            min={ymd(new Date())}
+            value={formFecha}
+            onChange={(e) => setFormFecha(e.target.value)}
+            className="pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+            onClick={() => openNativePicker(dateInputRef)}
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Hora de llamada postventa *</div>
+        <div className="relative">
+          <Input
+            ref={timeInputRef}
+            type="time"
+            value={formHora}
+            onChange={(e) => setFormHora(e.target.value)}
+            className="pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+            onClick={() => openNativePicker(timeInputRef)}
+          >
+            <Clock className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   </div>

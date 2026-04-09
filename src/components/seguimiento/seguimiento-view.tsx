@@ -63,7 +63,9 @@ type HistItem = {
   accion: string
   created_at: string
   detalle: string | null
-  user: { id: number; email: string }
+  user?: { id: number; email: string } | null
+  actor?: { id: number | null; email: string | null } | null
+  effective?: { id: number | null; email: string | null } | null
 }
 
 type SeguimientoSaleItem = {
@@ -189,13 +191,42 @@ function isoDayFromDateInput(dateStr: string) {
   return dateStr.trim()
 }
 
-function normalizeObsDetalle(detalle: string | null) {
+function isObsHistoryItem(item: HistItem) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim()
+  if (!detalle) return false
+
+  if (accion === "observaciones") return true
+  if (accion === "rechazado") return true
+  return false
+}
+
+function getObsHistorySource(item: HistItem) {
+  const accion = (item.accion || "").toLowerCase()
+  const detalle = (item.detalle || "").trim().toLowerCase()
+
+  if (detalle.startsWith("[creacion]")) return "Creación"
+  if (detalle.startsWith("[manual]")) return "Manual"
+  if (detalle.startsWith("[cita]")) return "Cita"
+  if (detalle.startsWith("[llamada]")) return "Llamada"
+  if (detalle.startsWith("[rechazo]")) return "Rechazo"
+
+  if (accion === "rechazado") return "Rechazo"
+  if (accion === "observaciones") return "Nota"
+
+  return "Nota"
+}
+
+function getObsHistoryText(detalle: string | null) {
   if (!detalle) return ""
-  const prefix1 = "Observaciones añadidas:"
-  const prefix2 = "Observaciones añadidas: "
-  if (detalle.startsWith(prefix2)) return detalle.slice(prefix2.length).trim()
-  if (detalle.startsWith(prefix1)) return detalle.slice(prefix1.length).trim()
-  return detalle.trim()
+  return detalle
+    .replace(/^Observaciones añadidas:\s*/i, "")
+    .replace(/^\[(creacion|manual|cita|llamada|rechazo)\]\s*/i, "")
+    .trim()
+}
+
+function getObsHistoryAuthor(item: HistItem) {
+  return item.effective?.email || item.user?.email || item.actor?.email || "—"
 }
 
 function getSeguimientoStatusUI(
@@ -318,7 +349,10 @@ const selectedVentasTotal = detailData?.resumen?.ventas_total_sin_iva ?? selecte
     try {
       const data = await apiGet(`/prospects/${prospectId}/historial`)
       const historial = (data?.historial || []) as HistItem[]
-      const onlyObs = historial.filter((h) => h.accion === "observaciones")
+      const onlyObs = historial
+        .filter(isObsHistoryItem)
+        .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+
       setObsHist(onlyObs)
     } catch (e: any) {
       setObsError(e?.message || "Error cargando observaciones")
@@ -970,7 +1004,12 @@ const renderSeguimientoSection = (
                                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                                       <UserIcon className="h-4 w-4 shrink-0" />
-                                      <span className="font-medium text-foreground truncate">{h.user?.email ?? "—"}</span>
+                                      <span className="font-medium text-foreground truncate">
+                                        {getObsHistoryAuthor(h)}
+                                      </span>
+                                      <Badge variant="outline" className="text-[10px]">
+                                        {getObsHistorySource(h)}
+                                      </Badge>
                                     </div>
 
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -980,14 +1019,12 @@ const renderSeguimientoSection = (
                                   </div>
 
                                   <div className="mt-3 whitespace-pre-wrap break-words text-sm">
-                                    {normalizeObsDetalle(h.detalle) || "—"}
+                                    {getObsHistoryText(h.detalle) || "—"}
                                   </div>
                                 </div>
                               ))}
                             </div>
-                          ) : selected.observaciones ? (
-                            <div className="whitespace-pre-wrap break-words text-sm">{selected.observaciones}</div>
-                          ) : (
+                            ) : (
                             <div className="text-sm text-muted-foreground italic">Sin observaciones</div>
                           )}
                         </div>
