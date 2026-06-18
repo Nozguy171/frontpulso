@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
+import { ProspectStatusBadge } from "./prospect-status-badge"
 
 type ProspectoBase = {
   id: number
@@ -43,6 +44,7 @@ type ProspectoBase = {
   rechazo_count?: number
   seguimiento_pausado?: boolean
   seguimiento_pausado_at?: string | null
+  seguimiento_fecha_base?: string | null
   created_at?: string
 }
 
@@ -282,6 +284,9 @@ export function ProspectoDetailDialog({
 <Badge variant="secondary" className="mt-1">
   {p.estado_label ?? p.estado}
 </Badge>
+<div className="mt-2">
+  <ProspectStatusBadge prospect={p} />
+</div>
                         </div>
 
                         <div>

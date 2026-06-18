@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 
 const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
@@ -44,6 +45,9 @@ prospect?: {
   numero: string
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
+  created_at?: string | null
+  seguimiento_pausado?: boolean | null
+  seguimiento_fecha_base?: string | null
   estado?: string | null
   venta_monto_sin_iva?: number | null
 } | null}
@@ -379,9 +383,12 @@ function LlamadaActionsMenu({
   onAction,
   allowRejectLike = true,
   allowManagementActions = true,
+  allowSaleAction = true,
+  allowDoneAction = true,
 }: {
   onAction?: (
     action:
+      | "marcar_hecha"
       | "reagendar"
       | "agendar_cita"
       | "vendido"
@@ -392,6 +399,8 @@ function LlamadaActionsMenu({
   ) => void
   allowRejectLike?: boolean
   allowManagementActions?: boolean
+  allowSaleAction?: boolean
+  allowDoneAction?: boolean
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -404,6 +413,16 @@ function LlamadaActionsMenu({
 
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+
+          {allowDoneAction ? <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              onAction?.("marcar_hecha")
+            }}
+          >
+            Marcar realizada
+          </DropdownMenuItem> : null}
 {allowManagementActions ? (
   <>
     <DropdownMenuSeparator />
@@ -426,14 +445,16 @@ function LlamadaActionsMenu({
       Agendar cita
     </DropdownMenuItem>
 
-    <DropdownMenuItem
-      onSelect={(e) => {
-        e.preventDefault()
-        onAction?.("vendido")
-      }}
-    >
-      Marcar vendido
-    </DropdownMenuItem>
+    {allowSaleAction ? (
+      <DropdownMenuItem
+        onSelect={(e) => {
+          e.preventDefault()
+          onAction?.("vendido")
+        }}
+      >
+        Marcar vendido
+      </DropdownMenuItem>
+    ) : null}
   </>
 ) : null}
 
@@ -487,6 +508,7 @@ function LlamadaActionsMenu({
 const MIN_RECHAZO_MOTIVO_LEN = 10
 type ActionState =
   | null
+  | { type: "marcar_hecha"; llamada: LlamadaDTO }
   | { type: "reagendar"; llamada: LlamadaDTO }
   | { type: "agendar_cita"; llamada: LlamadaDTO }
   | { type: "vendido"; llamada: LlamadaDTO }
@@ -569,7 +591,7 @@ const overduePendingToYMD = useMemo(
 
       const notas = items
         .filter(isHistoryNoteLike)
-        .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+        .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
 
       setProspectNotes(notas)
     } catch (e: any) {
@@ -604,7 +626,7 @@ const overduePendingToYMD = useMemo(
 
         const notas = items
           .filter(isHistoryNoteLike)
-          .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+          .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
 
         setProspectNotes(notas)
       } catch (e: any) {
@@ -693,10 +715,11 @@ const refreshAll = async () => {
 }
 
 const onLlamadaAction = (
-  action: "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "sin_respuesta" | "observaciones" | "ver_amigos",
+  action: "marcar_hecha" | "reagendar" | "agendar_cita" | "vendido" | "rechazado" | "sin_respuesta" | "observaciones" | "ver_amigos",
   llamada: LlamadaDTO
 ) => {
-    if (llamada.estado !== "pendiente") return
+    const estadoLlamada = (llamada.estado || "").toLowerCase()
+    if (estadoLlamada !== "pendiente" && !(estadoLlamada === "hecha" && ["vendido", "observaciones"].includes(action))) return
 
     resetActionForms()
 
@@ -720,13 +743,19 @@ const onLlamadaAction = (
       return
     }
 
+    if (action === "marcar_hecha") {
+      setFormObs(llamada.observaciones || "")
+      setActionOpen({ type: "marcar_hecha", llamada })
+      return
+    }
+
     if (!llamada?.prospect?.id) {
       alert("Esta llamada no tiene prospecto asociado. No se puede ejecutar esta acción.")
       return
     }
 
-        if (isSoldLikeCall(llamada) && (action === "rechazado" || action === "sin_respuesta")) {
-      alert("No puedes marcar como rechazado o sin respuesta a un prospecto que ya tiene ventas.")
+        if (isSoldLikeCall(llamada) && (action === "rechazado" || action === "sin_respuesta" || action === "vendido")) {
+      alert("Este prospecto ya tiene una venta registrada.")
       return
     }
 
@@ -782,6 +811,12 @@ if (action === "ver_amigos") {
         await apiPost(`/calls/${actionOpen.llamada.id}/reagendar`, {
           fecha: formFecha,
           hora: formHora,
+          observaciones: formObs?.trim() || null,
+        })
+      }
+
+      if (actionOpen.type === "marcar_hecha") {
+        await apiPost(`/calls/${actionOpen.llamada.id}/marcar-hecha`, {
           observaciones: formObs?.trim() || null,
         })
       }
@@ -1152,6 +1187,7 @@ const llamadasListFiltradas = useMemo(() => {
                   <Badge variant="secondary" className="truncate">
                     {llamada.prospect?.numero ?? "—"}
                   </Badge>
+                  <ProspectStatusBadge prospect={llamada.prospect} />
 <Badge variant="outline" className="text-xs">
   {llamada.estado_label ?? "Pendiente"}
 </Badge>
@@ -1162,10 +1198,12 @@ const llamadasListFiltradas = useMemo(() => {
                 </div>
               </div>
 
-              {llamada.estado === "pendiente" ? (
+              {["pendiente", "hecha"].includes((llamada.estado || "").toLowerCase()) ? (
 <LlamadaActionsMenu
-  allowManagementActions={!shouldHideCallManagementActions(llamada)}
-  allowRejectLike={!shouldHideCallRejectLikeActions(llamada)}
+  allowDoneAction={llamada.estado === "pendiente"}
+  allowManagementActions={llamada.estado === "pendiente"}
+  allowSaleAction={!isMonthlyFollowupCall(llamada) && !isSoldLikeCall(llamada)}
+  allowRejectLike={llamada.estado === "pendiente" && !shouldHideCallRejectLikeActions(llamada)}
   onAction={(a) => onLlamadaAction(a, llamada)}
 />            ) : null}
             </div>
@@ -1283,6 +1321,7 @@ const llamadasListFiltradas = useMemo(() => {
                                     </h3>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Badge variant="secondary">{llamada.prospect?.numero ?? "—"}</Badge>
+                                      <ProspectStatusBadge prospect={llamada.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCallStatusVisual(llamada.estado).badge}`}
@@ -1292,10 +1331,12 @@ const llamadasListFiltradas = useMemo(() => {
                                     </div>
                                   </div>
 
-                                  {llamada.estado === "pendiente" ? (
+                                  {["pendiente", "hecha"].includes((llamada.estado || "").toLowerCase()) ? (
 <LlamadaActionsMenu
-  allowManagementActions={!shouldHideCallManagementActions(llamada)}
-  allowRejectLike={!shouldHideCallRejectLikeActions(llamada)}
+  allowDoneAction={llamada.estado === "pendiente"}
+  allowManagementActions={llamada.estado === "pendiente"}
+  allowSaleAction={!isMonthlyFollowupCall(llamada) && !isSoldLikeCall(llamada)}
+  allowRejectLike={llamada.estado === "pendiente" && !shouldHideCallRejectLikeActions(llamada)}
   onAction={(a) => onLlamadaAction(a, llamada)}
 />                                ) : null}
                                 </div>
@@ -1383,6 +1424,7 @@ const llamadasListFiltradas = useMemo(() => {
                         <Badge variant="secondary" className="truncate">
                           {selectedLlamada.prospect?.numero ?? "—"}
                         </Badge>
+                        <ProspectStatusBadge prospect={selectedLlamada.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCallStatusVisual(selectedLlamada.estado).badge}`}
@@ -1402,7 +1444,7 @@ const llamadasListFiltradas = useMemo(() => {
                       <div className="flex items-start gap-2 text-sm">
                         <CalendarIcon className="h-4 w-4 mt-0.5 text-muted-foreground" />
                         <div>
-                          <div className="text-muted-foreground text-xs">Fecha</div>
+                          <div className="text-muted-foreground text-xs">Fecha de la llamada</div>
                           <div className="font-medium">{formatFechaCorta(selectedLlamada.fecha_hora)}</div>
                         </div>
                       </div>
@@ -1435,9 +1477,35 @@ const llamadasListFiltradas = useMemo(() => {
                       ) : errorNotes ? (
                         <div className="text-sm text-red-500">{errorNotes}</div>
                       ) : prospectNotes.length === 0 ? (
-                        <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                        <div className="space-y-2">
+                          {selectedLlamada.prospect?.created_at ? (
+                            <div className="rounded-md border p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
+                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedLlamada.prospect.created_at)}</div>
+                              </div>
+                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
+                            </div>
+                          ) : null}
+                          <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                        </div>
                       ) : (
                         <div className="space-y-2">
+                          {selectedLlamada.prospect?.created_at ? (
+                            <div className="rounded-md border p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
+                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedLlamada.prospect.created_at)}</div>
+                              </div>
+                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
+                            </div>
+                          ) : null}
                           {prospectNotes.map((n) => (
                             <div key={n.id} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
@@ -1487,6 +1555,8 @@ const llamadasListFiltradas = useMemo(() => {
 <DialogTitle>
   {actionOpen?.type === "reagendar"
     ? "Reagendar llamada"
+    : actionOpen?.type === "marcar_hecha"
+    ? "Marcar llamada realizada"
     : actionOpen?.type === "agendar_cita"
     ? "Agendar cita"
     : actionOpen?.type === "vendido"
@@ -1508,6 +1578,13 @@ const llamadasListFiltradas = useMemo(() => {
                 <div className="text-xs text-muted-foreground mb-1">Agregar nueva observación</div>
                 <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Escribe una nota nueva..." />
                 <div className="text-[11px] text-muted-foreground mt-1">Se guarda en el historial del prospecto.</div>
+              </div>
+            ) : null}
+            {actionOpen?.type === "marcar_hecha" ? (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
+                <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Se llamó y se confirmó seguimiento..." />
+                <div className="text-[11px] text-muted-foreground mt-1">La llamada deja de aparecer como pendiente y se guarda en historial.</div>
               </div>
             ) : null}
             {(actionOpen?.type === "reagendar" || actionOpen?.type === "agendar_cita") ? (

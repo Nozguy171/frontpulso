@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 import { API_BASE_URL } from "@/lib/api"
+import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 
 const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
@@ -31,6 +32,9 @@ type ProspectDTO = {
 forma_obtencion?: string | null
   observaciones?: string | null
   estado: string
+  venta_monto_sin_iva?: number | null
+  seguimiento_pausado?: boolean | null
+  seguimiento_fecha_base?: string | null
   created_at?: string
 }
 
@@ -289,6 +293,7 @@ export function AnexadosView() {
                             <Badge variant="outline" className="text-xs">
                               {p.estado}
                             </Badge>
+                            <ProspectStatusBadge prospect={p} />
                             <Badge variant="outline" className="text-xs">
                               {formatFechaCorta(p.created_at)}
                             </Badge>

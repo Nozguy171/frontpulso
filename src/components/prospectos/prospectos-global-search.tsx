@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
+import { ProspectStatusBadge } from "./prospect-status-badge"
 
 type Prospecto = {
   id: number
@@ -33,6 +34,7 @@ type Prospecto = {
   rechazo_count?: number
   seguimiento_pausado?: boolean
   seguimiento_pausado_at?: string | null
+  seguimiento_fecha_base?: string | null
   created_at?: string
 }
 
@@ -247,6 +249,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
                                   <PhoneIcon className="h-3 w-3 mr-1" />
                                   {prospecto.numero}
                                 </Badge>
+                                <ProspectStatusBadge prospect={prospecto} />
                               </div>
                             </div>
                           </div>

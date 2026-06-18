@@ -10,6 +10,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
+import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 
 
 
@@ -56,6 +57,7 @@ forma_obtencion?: string | null
   seguimiento_activo: boolean
   seguimiento_pausado: boolean
   seguimiento_pausado_at: string | null
+  seguimiento_fecha_base?: string | null
 }
 
 type HistItem = {
@@ -597,6 +599,7 @@ const renderSeguimientoSection = (
                             <Badge variant="secondary" className="max-w-[220px] truncate">
                               {p.numero}
                             </Badge>
+                            <ProspectStatusBadge prospect={p} />
 
                             <Badge variant="outline" className={`text-[11px] sm:text-xs ${statusUi.badgeClass}`}>
                               {statusUi.shortLabel}
@@ -879,6 +882,7 @@ const renderSeguimientoSection = (
   <Badge variant="secondary" className="max-w-[320px] truncate">
     {selectedDetailProspect?.numero ?? selected.numero}
   </Badge>
+  <ProspectStatusBadge prospect={selectedDetailProspect ?? selected} />
   <Badge variant="outline" className="text-xs">
     {selected.estado}
   </Badge>

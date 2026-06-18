@@ -18,6 +18,7 @@ import {
   BarChart3,
   UserCheck,
   UserX,
+  Palette,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { API_BASE_URL } from "@/lib/api"
@@ -35,6 +36,19 @@ const menuItems = [
   { href: "/historial", label: "Historial", icon: History },
   { href: "/estadisticas", label: "Estadísticas", icon: BarChart3, leaderOnly: true },
   { href: "/colaboradores", label: "Colaboradores", icon: UserCog, leaderOnly: true },
+]
+
+const themes = [
+  { id: "", label: "Nocturno", colors: ["#222936", "#36a3ff", "#10131a"] },
+  { id: "royal-gold", label: "Rey", colors: ["#c8a24a", "#31538d", "#10192b"] },
+  { id: "silver-blue", label: "Plata", colors: ["#b8c7dd", "#274b86", "#111722"] },
+  { id: "crown-black", label: "Corona", colors: ["#c79a2b", "#651f32", "#0d0b09"] },
+  { id: "emerald-platinum", label: "Esmeralda", colors: ["#d6dce4", "#1f4b3f", "#0d1714"] },
+  { id: "champagne-cream", label: "Champagne", colors: ["#fff8ea", "#8f6b2f", "#1b2d46"] },
+  { id: "ivory-navy", label: "Marfil", colors: ["#ffffff", "#183b6b", "#b68a35"] },
+  { id: "graphite-rose", label: "Grafito", colors: ["#f4d6dc", "#8e2f4d", "#141417"] },
+  { id: "sage-ivory", label: "Olivo", colors: ["#fbf7ed", "#5f6f45", "#273326"] },
+  { id: "arctic-indigo", label: "Ártico", colors: ["#eef6ff", "#3746a0", "#0f172a"] },
 ]
 
 type MeUser = {
@@ -84,6 +98,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const [actingId, setActingId] = useState<string>("")
   const [actingEmail, setActingEmail] = useState<string>("")
   const [loadingActing, setLoadingActing] = useState(false)
+  const [theme, setTheme] = useState("")
 
   const isLeader = useMemo(() => {
     const rol = (me?.role || "").toLowerCase()
@@ -95,6 +110,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       localStorage.clear()
     } catch {}
     router.push("/")
+  }
+
+  const applyTheme = (value: string) => {
+    document.documentElement.dataset.theme = value
+    document.body.dataset.theme = value
+    localStorage.setItem("pulso_theme", value)
+    setTheme(value)
   }
 
 const clearActing = () => {
@@ -126,6 +148,10 @@ const clearActing = () => {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    applyTheme(localStorage.getItem("pulso_theme") || "")
   }, [])
 
   useEffect(() => {
@@ -239,6 +265,33 @@ const clearActing = () => {
 
       {/* Bottom */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
+        <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <Palette className="h-3.5 w-3.5" />
+            Estilo
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {themes.map((item) => (
+              <button
+                key={item.id || "default"}
+                type="button"
+                onClick={() => applyTheme(item.id)}
+                className={cn(
+                  "h-9 rounded-md border px-2 text-[11px] text-sidebar-foreground flex items-center gap-2 hover:bg-sidebar-accent",
+                  theme === item.id ? "border-primary bg-sidebar-accent" : "border-sidebar-border",
+                )}
+              >
+                <span className="flex -space-x-1">
+                  {item.colors.map((color) => (
+                    <span key={color} className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
           <p className="text-xs text-muted-foreground mb-1">Usuario</p>
 

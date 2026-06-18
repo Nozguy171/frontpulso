@@ -11,6 +11,7 @@ import { ProspectoDialog } from "./prospecto-dialog"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectosGlobalSearch } from "./prospectos-global-search"
 import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
+import { ProspectStatusBadge } from "./prospect-status-badge"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8085/api"
 
 type Prospecto = {
@@ -30,6 +31,7 @@ type Prospecto = {
   rechazo_count?: number
   seguimiento_pausado?: boolean
   seguimiento_pausado_at?: string | null
+  seguimiento_fecha_base?: string | null
   created_at?: string
 }
 
@@ -371,6 +373,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
             <PhoneIcon className="h-3 w-3 mr-1" />
             {prospecto.numero}
           </Badge>
+          <ProspectStatusBadge prospect={prospecto} />
         </div>
       </div>
     </div>

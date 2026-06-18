@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { API_BASE_URL } from "@/lib/api"
 import { BarChart3, TrendingUp, Users, Target, DollarSign, Award, Calendar, Phone } from "lucide-react"
 import {
@@ -52,6 +54,7 @@ interface DashboardStatsResponse {
     estado_key: string
   }[]
   actividad_semanal: {
+    day: string
     dia: string
     llamadas: number
     citas: number
@@ -81,6 +84,20 @@ interface DashboardStatsResponse {
   collab_month: number | null
 }
 
+interface StatsDetailItem {
+  id: number
+  tipo: string
+  titulo: string
+  fecha?: string | null
+  detalle?: string | null
+  prospect_id?: number | null
+}
+
+interface StatsDetailResponse {
+  title: string
+  items: StatsDetailItem[]
+}
+
 const MONTHS = [
   { value: 1, label: "Enero" },
   { value: 2, label: "Febrero" },
@@ -95,6 +112,9 @@ const MONTHS = [
   { value: 11, label: "Noviembre" },
   { value: 12, label: "Diciembre" },
 ]
+
+const chartText = "var(--muted-foreground)"
+const chartGrid = "var(--border)"
 
 function getActingAsUserId(): string | null {
   if (typeof window === "undefined") return null
@@ -163,6 +183,17 @@ function formatPercent(value: number) {
   return `${Number(value || 0).toFixed(2).replace(".00", "")}%`
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return "Sin fecha"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Sin fecha"
+
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date)
+}
+
 function SalesTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
 
@@ -170,15 +201,15 @@ function SalesTooltip({ active, payload, label }: any) {
   if (!row) return null
 
   return (
-    <div className="min-w-[190px] rounded-xl border border-white/10 bg-[#0b1020] p-3 shadow-md">
-      <p className="mb-2 text-sm font-semibold text-white">{label}</p>
+    <div className="min-w-[190px] rounded-xl border bg-card p-3 text-card-foreground shadow-md">
+      <p className="mb-2 text-sm font-semibold">{label}</p>
 
       <div className="space-y-1 text-sm">
-        <p className="text-slate-300">
-          Monto: <span className="font-medium text-white">{formatCurrency(Number(row.monto || 0))}</span>
+        <p className="text-muted-foreground">
+          Monto: <span className="font-medium text-foreground">{formatCurrency(Number(row.monto || 0))}</span>
         </p>
-        <p className="text-slate-300">
-          Ventas: <span className="font-medium text-white">{formatNumber(Number(row.ventas || 0))}</span>
+        <p className="text-muted-foreground">
+          Ventas: <span className="font-medium text-foreground">{formatNumber(Number(row.ventas || 0))}</span>
         </p>
       </div>
     </div>
@@ -218,6 +249,11 @@ export function EstadisticasView() {
   const [collabMode, setCollabMode] = useState<"always" | "month">("always")
   const [collabYear, setCollabYear] = useState(currentYear)
   const [collabMonth, setCollabMonth] = useState(new Date().getMonth() + 1)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailTitle, setDetailTitle] = useState("Detalle")
+  const [detailItems, setDetailItems] = useState<StatsDetailItem[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
 
   const availableYears = useMemo(() => {
     const years = stats?.ventas_chart?.available_years ?? []
@@ -271,6 +307,38 @@ export function EstadisticasView() {
   const actividadData = stats?.actividad_semanal ?? []
   const topPerformer = stats?.top_performer
 
+  async function openDetails(params: Record<string, string | number>) {
+    try {
+      setDetailOpen(true)
+      setDetailLoading(true)
+      setDetailError(null)
+      setDetailItems([])
+
+      const query = new URLSearchParams(
+        Object.entries(params).map(([key, value]) => [key, String(value)]),
+      )
+      const data = (await apiGet(`/stats/details?${query.toString()}`)) as StatsDetailResponse
+
+      setDetailTitle(data.title || "Detalle")
+      setDetailItems(data.items ?? [])
+    } catch (err: any) {
+      setDetailError(err?.message || "No se pudo cargar el detalle")
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  function openCollaboratorDetails(userId: number, metric: "prospectos" | "citas" | "vendidos") {
+    openDetails({
+      kind: "collaborator",
+      user_id: userId,
+      metric,
+      collab_mode: collabMode,
+      collab_year: collabYear,
+      collab_month: collabMonth,
+    })
+  }
+
   return (
     <AppLayout>
       <div className="p-8">
@@ -292,7 +360,10 @@ export function EstadisticasView() {
         )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <Card
+            className="cursor-pointer border-primary/20 bg-gradient-to-br from-primary/5 to-transparent transition hover:border-primary/50"
+            onClick={() => openDetails({ kind: "sales_month" })}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Ventas del Mes</CardTitle>
               <DollarSign className="h-4 w-4 text-primary" />
@@ -321,7 +392,10 @@ export function EstadisticasView() {
             </CardContent>
           </Card>
 
-          <Card className="border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent">
+          <Card
+            className="cursor-pointer border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent transition hover:border-cyan-500/50"
+            onClick={() => openDetails({ kind: "sold_with_appointment" })}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Conversión</CardTitle>
               <Target className="h-4 w-4 text-cyan-500" />
@@ -340,7 +414,10 @@ export function EstadisticasView() {
             </CardContent>
           </Card>
 
-          <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent">
+          <Card
+            className="cursor-pointer border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent transition hover:border-purple-500/50"
+            onClick={() => openDetails({ kind: "with_appointment" })}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Citas Agendadas</CardTitle>
               <Calendar className="h-4 w-4 text-purple-500" />
@@ -359,7 +436,10 @@ export function EstadisticasView() {
             </CardContent>
           </Card>
 
-          <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
+          <Card
+            className="cursor-pointer border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent transition hover:border-orange-500/50"
+            onClick={() => openDetails({ kind: "calls_done" })}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5 text-orange-500" />
@@ -418,9 +498,21 @@ export function EstadisticasView() {
   <LineChart
     data={ventasData}
     margin={{ top: 12, right: 18, left: 6, bottom: 8 }}
+    onClick={(chart: any) => {
+      const period = chart?.activeLabel
+      if (!period) return
+      openDetails({
+        kind: "sales_period",
+        granularity: salesGranularity,
+        period: String(period),
+        year: salesYear,
+      })
+    }}
+    className="cursor-pointer"
   >
     <CartesianGrid
-      stroke="rgba(148,163,184,0.10)"
+      stroke={chartGrid}
+      opacity={0.35}
       strokeDasharray="4 4"
       vertical={false}
     />
@@ -429,35 +521,35 @@ export function EstadisticasView() {
       dataKey="periodo"
       tickLine={false}
       axisLine={false}
-      tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
+      tick={{ fill: chartText, fontSize: 12 }}
     />
 
     <YAxis
       tickLine={false}
       axisLine={false}
       width={70}
-      tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
+      tick={{ fill: chartText, fontSize: 12 }}
       tickFormatter={(value) => `$${formatCompactCurrency(Number(value))}`}
     />
 
     <Tooltip
       content={<SalesTooltip />}
-      cursor={{ stroke: "rgba(148,163,184,0.22)", strokeDasharray: "4 4" }}
+      cursor={{ stroke: chartGrid, strokeDasharray: "4 4" }}
     />
 
     <Line
       type="monotone"
       dataKey="monto"
       name="Monto"
-      stroke="#8b5cf6"
+      stroke="var(--primary)"
       strokeWidth={3}
       strokeLinecap="round"
       strokeLinejoin="round"
       dot={false}
       activeDot={{
         r: 5,
-        fill: "#0b1020",
-        stroke: "#8b5cf6",
+        fill: "var(--card)",
+        stroke: "var(--primary)",
         strokeWidth: 2,
       }}
     />
@@ -485,6 +577,11 @@ export function EstadisticasView() {
                       label={(props: any) => `${props?.payload?.estado}: ${props?.payload?.cantidad ?? 0}`}
                       outerRadius={100}
                       dataKey="cantidad"
+                      onClick={(entry: any) => {
+                        const estado = entry?.estado_key || entry?.payload?.estado_key
+                        if (estado) openDetails({ kind: "status", estado })
+                      }}
+                      className="cursor-pointer"
                     >
                       {distribucionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -493,8 +590,9 @@ export function EstadisticasView() {
 <Tooltip
   formatter={(value) => [formatNumber(Number(value ?? 0)), "Cantidad"]}
   contentStyle={{
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
+    backgroundColor: "var(--card)",
+    border: "1px solid var(--border)",
+    color: "var(--card-foreground)",
     borderRadius: "8px",
   }}
 />
@@ -563,17 +661,32 @@ export function EstadisticasView() {
               {colaboradoresData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={colaboradoresData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="nombre" className="text-xs" angle={-15} textAnchor="end" height={80} />
-                    <YAxis className="text-xs" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                    <CartesianGrid stroke={chartGrid} opacity={0.35} strokeDasharray="3 3" />
+                    <XAxis dataKey="nombre" tick={{ fill: chartText, fontSize: 12 }} angle={-15} textAnchor="end" height={80} />
+                    <YAxis tick={{ fill: chartText, fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                     <Tooltip content={<CollaboratorTooltip />} />
-                    <Legend />
-                    <Bar dataKey="tasa_citas" fill="hsl(var(--primary))" name="% Citas" radius={[6, 6, 0, 0]} />
+                    <Legend wrapperStyle={{ color: chartText }} />
+                    <Bar
+                      dataKey="tasa_citas"
+                      fill="var(--primary)"
+                      name="% Citas"
+                      radius={[6, 6, 0, 0]}
+                      onClick={(entry: any) => {
+                        const row = entry?.payload || entry
+                        if (row?.user_id) openCollaboratorDetails(row.user_id, "citas")
+                      }}
+                      className="cursor-pointer"
+                    />
                     <Bar
                       dataKey="tasa_conversion"
                       fill="#10b981"
                       name="% Conversión"
                       radius={[6, 6, 0, 0]}
+                      onClick={(entry: any) => {
+                        const row = entry?.payload || entry
+                        if (row?.user_id) openCollaboratorDetails(row.user_id, "vendidos")
+                      }}
+                      className="cursor-pointer"
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -596,19 +709,40 @@ export function EstadisticasView() {
               {actividadData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={actividadData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="dia" className="text-xs" />
-                    <YAxis className="text-xs" allowDecimals={false} />
+                    <CartesianGrid stroke={chartGrid} opacity={0.35} strokeDasharray="3 3" />
+                    <XAxis dataKey="dia" tick={{ fill: chartText, fontSize: 12 }} />
+                    <YAxis tick={{ fill: chartText, fontSize: 12 }} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
+                        color: "var(--card-foreground)",
                         borderRadius: "8px",
                       }}
                     />
-                    <Legend />
-                    <Bar dataKey="llamadas" fill="#f97316" name="Llamadas" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="citas" fill="#8b5cf6" name="Citas" radius={[6, 6, 0, 0]} />
+                    <Legend wrapperStyle={{ color: chartText }} />
+                    <Bar
+                      dataKey="llamadas"
+                      fill="#f97316"
+                      name="Llamadas"
+                      radius={[6, 6, 0, 0]}
+                      onClick={(entry: any) => {
+                        const row = entry?.payload || entry
+                        if (row?.day) openDetails({ kind: "week_activity", day: row.day, metric: "llamadas" })
+                      }}
+                      className="cursor-pointer"
+                    />
+                    <Bar
+                      dataKey="citas"
+                      fill="#8b5cf6"
+                      name="Citas"
+                      radius={[6, 6, 0, 0]}
+                      onClick={(entry: any) => {
+                        const row = entry?.payload || entry
+                        if (row?.day) openDetails({ kind: "week_activity", day: row.day, metric: "citas" })
+                      }}
+                      className="cursor-pointer"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -633,17 +767,25 @@ export function EstadisticasView() {
                 <div>
                   <h3 className="text-2xl font-bold text-foreground mb-2">{topPerformer.nombre}</h3>
                   <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    <span>
+                    <button
+                      type="button"
+                      onClick={() => openCollaboratorDetails(topPerformer.user_id, "citas")}
+                      className="rounded-md border border-transparent px-1 text-left transition hover:border-primary/30 hover:text-foreground"
+                    >
                       <span className="font-semibold text-foreground">
                         {formatNumber(topPerformer.prospectos_con_cita)}
                       </span>{" "}
                       prospectos con cita
-                    </span>
+                    </button>
                     <span>•</span>
-                    <span>
+                    <button
+                      type="button"
+                      onClick={() => openCollaboratorDetails(topPerformer.user_id, "vendidos")}
+                      className="rounded-md border border-transparent px-1 text-left transition hover:border-primary/30 hover:text-foreground"
+                    >
                       <span className="font-semibold text-green-500">{formatNumber(topPerformer.vendidos)}</span>{" "}
                       vendidos
-                    </span>
+                    </button>
                     <span>•</span>
                     <span>
                       <span className="font-semibold text-primary">{formatPercent(topPerformer.tasa_conversion)}</span>{" "}
@@ -651,7 +793,12 @@ export function EstadisticasView() {
                     </span>
                   </div>
                 </div>
-                <Badge className="text-lg px-4 py-2">Top Performer</Badge>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openCollaboratorDetails(topPerformer.user_id, "prospectos")}>
+                    Prospectos
+                  </Button>
+                  <Badge className="text-lg px-4 py-2">Top Performer</Badge>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">Sin datos suficientes para determinar un top performer.</div>
@@ -659,6 +806,39 @@ export function EstadisticasView() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-h-[82vh] overflow-hidden sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{detailTitle}</DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[62vh] space-y-3 overflow-y-auto pr-1">
+            {detailLoading ? (
+              <div className="rounded-lg border p-4 text-sm text-muted-foreground">Cargando detalle...</div>
+            ) : detailError ? (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600">
+                {detailError}
+              </div>
+            ) : detailItems.length === 0 ? (
+              <div className="rounded-lg border p-4 text-sm text-muted-foreground">No hay registros para esta métrica.</div>
+            ) : (
+              detailItems.map((item) => (
+                <div key={`${item.tipo}-${item.id}`} className="rounded-lg border bg-card p-4">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-foreground">{item.titulo}</div>
+                      <div className="text-sm text-muted-foreground">{formatDate(item.fecha)}</div>
+                    </div>
+                    <Badge variant="outline">{item.tipo}</Badge>
+                  </div>
+                  {item.detalle && <div className="text-sm text-muted-foreground">{item.detalle}</div>}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   )
 }

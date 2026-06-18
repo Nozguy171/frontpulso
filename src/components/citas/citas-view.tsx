@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 
 const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
@@ -47,6 +48,9 @@ prospect?: {
   estado?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
+  created_at?: string | null
+  seguimiento_pausado?: boolean | null
+  seguimiento_fecha_base?: string | null
   venta_monto_sin_iva?: number | null
 } | null
 }
@@ -296,11 +300,17 @@ function monthRange(base: Date) {
 function CitaActionsMenu({
   onAction,
   allowRejectLike = true,
+  allowDoneAction = true,
+  allowScheduleActions = true,
+  allowSaleAction = true,
 }: {
   onAction?: (
-    action: "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones"
+    action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones"
   ) => void
   allowRejectLike?: boolean
+  allowDoneAction?: boolean
+  allowScheduleActions?: boolean
+  allowSaleAction?: boolean
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -315,34 +325,43 @@ function CitaActionsMenu({
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
+          {allowDoneAction ? <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              onAction?.("marcar_realizada")
+            }}
+          >
+            Marcar realizada
+          </DropdownMenuItem> : null}
+
+          {allowScheduleActions ? <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
               onAction?.("reagendar")
             }}
           >
             Reagendar cita
-          </DropdownMenuItem>
+          </DropdownMenuItem> : null}
 
 
-<DropdownMenuItem
+{allowScheduleActions ? <DropdownMenuItem
   onSelect={(e) => {
     e.preventDefault()
     onAction?.("programar_llamada")
   }}
 >
   Programar llamada
-</DropdownMenuItem>
+</DropdownMenuItem> : null}
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
+          {allowSaleAction ? <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
               onAction?.("vendido")
             }}
           >
             Marcar vendido
-          </DropdownMenuItem>
+          </DropdownMenuItem> : null}
 
           {allowRejectLike ? (
             <DropdownMenuItem
@@ -373,6 +392,7 @@ function CitaActionsMenu({
 
 type ActionState =
   | null
+  | { type: "marcar_realizada"; cita: CitaDTO }
   | { type: "reagendar"; cita: CitaDTO }
   | { type: "programar_llamada"; cita: CitaDTO }
   | { type: "vendido"; cita: CitaDTO }
@@ -429,7 +449,7 @@ export function CitasView() {
 
     const notas = items
       .filter(isHistoryNoteLike)
-      .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
 
       setProspectNotes(notas)
     } catch (e: any) {
@@ -463,7 +483,7 @@ export function CitasView() {
         const items: HistoryItemDTO[] = (data?.historial || []) as any
         const notas = items
           .filter(isHistoryNoteLike)
-          .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+          .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
 
         setProspectNotes(notas)
       } catch (e: any) {
@@ -541,18 +561,25 @@ const refreshAll = async () => {
 }
 
 const onCitaAction = (
-  action: "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones",
+  action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones",
   cita: CitaDTO
 ) => {
     if (!cita?.prospect?.id) return
-    if (cita.estado !== "programada") return
+    const estadoCita = (cita.estado || "").toLowerCase()
+    if (estadoCita !== "programada" && !(estadoCita === "realizada" && ["vendido", "observaciones"].includes(action))) return
 
-    if (isSoldLikeAppointment(cita) && action === "rechazado") {
-      alert("No puedes marcar como rechazado a un prospecto que ya tiene ventas.")
+    if (isSoldLikeAppointment(cita) && (action === "rechazado" || action === "vendido")) {
+      alert("Este prospecto ya tiene una venta registrada.")
       return
     }
 
     resetActionForms()
+
+    if (action === "marcar_realizada") {
+      setFormObs(cita.observaciones || "")
+      setActionOpen({ type: "marcar_realizada", cita })
+      return
+    }
 
     if (action === "reagendar") {
       // ✅ precargar fecha/hora actual
@@ -594,6 +621,12 @@ if (action === "programar_llamada") {
 
     setSavingAction(true)
     try {
+      if (actionOpen.type === "marcar_realizada") {
+        await apiPost(`/appointments/${actionOpen.cita.id}/marcar-realizada`, {
+          observaciones: formObs?.trim() || null,
+        })
+      }
+
       if (actionOpen.type === "reagendar") {
         if (!formFecha || !formHora || !formUbicacion.trim()) {
           alert("Fecha, hora y ubicación son obligatorias")
@@ -889,6 +922,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   <Badge variant="secondary" className="truncate">
                     {cita.prospect?.numero ?? "—"}
                   </Badge>
+                  <ProspectStatusBadge prospect={cita.prospect} />
 
 <Badge variant="outline" className={`text-xs ${statusStyles.badge}`}>
   {cita.estado_label ?? statusStyles.labelFallback}
@@ -896,8 +930,14 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                 </div>
               </div>
 
-              {cita.estado === "programada" ? (
-                <CitaActionsMenu onAction={(a) => onCitaAction(a, cita)} />
+              {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? (
+                <CitaActionsMenu
+                  allowDoneAction={cita.estado === "programada"}
+                  allowScheduleActions={cita.estado === "programada"}
+                  allowSaleAction={!isSoldLikeAppointment(cita)}
+                  allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
+                  onAction={(a) => onCitaAction(a, cita)}
+                />
               ) : null}
             </div>
 
@@ -1011,6 +1051,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Badge variant="secondary">{cita.prospect?.numero ?? "—"}</Badge>
+                                      <ProspectStatusBadge prospect={cita.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCitaStatusVisual(cita.estado).badge}`}
@@ -1020,8 +1061,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     </div>
                                   </div>
 
-                                  {cita.estado === "programada" ? <CitaActionsMenu
-  allowRejectLike={!isSoldLikeAppointment(cita)}
+                                  {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? <CitaActionsMenu
+  allowDoneAction={cita.estado === "programada"}
+  allowScheduleActions={cita.estado === "programada"}
+  allowSaleAction={!isSoldLikeAppointment(cita)}
+  allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
   onAction={(a) => onCitaAction(a, cita)}
 /> : null}
                                 </div>
@@ -1109,6 +1153,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                         <Badge variant="secondary" className="truncate">
                           {selectedCita.prospect?.numero ?? "—"}
                         </Badge>
+                        <ProspectStatusBadge prospect={selectedCita.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCitaStatusVisual(selectedCita.estado).badge}`}
@@ -1128,7 +1173,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                       <div className="flex items-start gap-2 text-sm">
                         <CalendarIcon className="h-4 w-4 mt-0.5 text-muted-foreground" />
                         <div>
-                          <div className="text-muted-foreground text-xs">Fecha</div>
+                          <div className="text-muted-foreground text-xs">Fecha de la cita</div>
                           <div className="font-medium">{formatFechaCorta(selectedCita.fecha_hora)}</div>
                         </div>
                       </div>
@@ -1169,9 +1214,35 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                       ) : errorNotes ? (
                         <div className="text-sm text-red-500">{errorNotes}</div>
                       ) : prospectNotes.length === 0 ? (
-                        <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                        <div className="space-y-2">
+                          {selectedCita.prospect?.created_at ? (
+                            <div className="rounded-md border p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
+                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedCita.prospect.created_at)}</div>
+                              </div>
+                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
+                            </div>
+                          ) : null}
+                          <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                        </div>
                       ) : (
                         <div className="space-y-2">
+                          {selectedCita.prospect?.created_at ? (
+                            <div className="rounded-md border p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
+                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedCita.prospect.created_at)}</div>
+                              </div>
+                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
+                            </div>
+                          ) : null}
                           {prospectNotes.map((n) => (
                             <div key={n.id} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
@@ -1221,6 +1292,8 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 <DialogTitle>
   {actionOpen?.type === "reagendar"
     ? "Reagendar cita"
+    : actionOpen?.type === "marcar_realizada"
+    ? "Marcar cita realizada"
     : actionOpen?.type === "programar_llamada"
     ? "Programar llamada"
     : actionOpen?.type === "vendido"
@@ -1235,6 +1308,13 @@ const statusStyles = getCitaStatusVisual(cita.estado)
           </DialogHeader>
 
           <div className="grid gap-3">
+{actionOpen?.type === "marcar_realizada" ? (
+  <div>
+    <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
+    <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Visita realizada / cita atendida..." />
+    <div className="text-[11px] text-muted-foreground mt-1">La cita deja de aparecer como pendiente y se guarda en historial.</div>
+  </div>
+) : null}
 {actionOpen?.type === "reagendar" || actionOpen?.type === "programar_llamada" ? (
   <>
     <div className="grid sm:grid-cols-2 gap-3">
