@@ -38,18 +38,21 @@ const menuItems = [
   { href: "/colaboradores", label: "Colaboradores", icon: UserCog, leaderOnly: true },
 ]
 
+const DEFAULT_THEME = "royal-gold"
 const themes = [
-  { id: "", label: "Nocturno", colors: ["#222936", "#36a3ff", "#10131a"] },
-  { id: "royal-gold", label: "Rey", colors: ["#c8a24a", "#31538d", "#10192b"] },
-  { id: "silver-blue", label: "Plata", colors: ["#b8c7dd", "#274b86", "#111722"] },
-  { id: "crown-black", label: "Corona", colors: ["#c79a2b", "#651f32", "#0d0b09"] },
-  { id: "emerald-platinum", label: "Esmeralda", colors: ["#d6dce4", "#1f4b3f", "#0d1714"] },
-  { id: "champagne-cream", label: "Champagne", colors: ["#fff8ea", "#8f6b2f", "#1b2d46"] },
-  { id: "ivory-navy", label: "Marfil", colors: ["#ffffff", "#183b6b", "#b68a35"] },
-  { id: "graphite-rose", label: "Grafito", colors: ["#f4d6dc", "#8e2f4d", "#141417"] },
-  { id: "sage-ivory", label: "Olivo", colors: ["#fbf7ed", "#5f6f45", "#273326"] },
-  { id: "arctic-indigo", label: "Ártico", colors: ["#eef6ff", "#3746a0", "#0f172a"] },
+  { id: "royal-gold", label: "Rey", colors: ["#c8a24a", "#31538d", "#6db7d8", "#d47a4a", "#10192b"] },
+  { id: "royal-ruby", label: "Rey rubí", colors: ["#d7a84f", "#b91c4d", "#f97316", "#7dd3fc", "#170b12"] },
+  { id: "royal-emerald", label: "Rey esmeralda", colors: ["#d6ad50", "#21a36f", "#38bdf8", "#f472b6", "#091713"] },
+  { id: "royal-sapphire", label: "Rey zafiro", colors: ["#d9b75d", "#3b82f6", "#22d3ee", "#fb7185", "#071226"] },
+  { id: "royal-amethyst", label: "Rey amatista", colors: ["#d2aa52", "#8b5cf6", "#f472b6", "#22d3ee", "#130d24"] },
+  { id: "royal-obsidian", label: "Rey obsidiana", colors: ["#c79a2b", "#651f32", "#2563eb", "#16a34a", "#0d0b09"] },
+  { id: "royal-bronze", label: "Rey bronce", colors: ["#d89b3d", "#c56a2d", "#0ea5e9", "#84cc16", "#1d140d"] },
+  { id: "royal-ivory", label: "Rey marfil", colors: ["#946b24", "#183b6b", "#0f766e", "#be123c", "#f6efdf"] },
+  { id: "royal-teal", label: "Rey turquesa", colors: ["#d6ad50", "#14b8a6", "#38bdf8", "#f97316", "#08191d"] },
+  { id: "royal-wine", label: "Rey vino", colors: ["#d8a24a", "#93335f", "#06b6d4", "#65a30d", "#180c16"] },
+  { id: "royal-cobalt", label: "Rey cobalto", colors: ["#d5ad55", "#6366f1", "#14b8a6", "#fb7185", "#0b1024"] },
 ]
+const themeIds = themes.map((item) => item.id)
 
 type MeUser = {
   id: number
@@ -113,10 +116,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   const applyTheme = (value: string) => {
-    document.documentElement.dataset.theme = value
-    document.body.dataset.theme = value
-    localStorage.setItem("pulso_theme", value)
-    setTheme(value)
+    const next = themeIds.includes(value) ? value : DEFAULT_THEME
+    document.documentElement.dataset.theme = next
+    document.body.dataset.theme = next
+    localStorage.setItem("pulso_theme", next)
+    setTheme(next)
   }
 
 const clearActing = () => {
@@ -151,7 +155,7 @@ const clearActing = () => {
   }, [])
 
   useEffect(() => {
-    applyTheme(localStorage.getItem("pulso_theme") || "")
+    applyTheme(localStorage.getItem("pulso_theme") || DEFAULT_THEME)
   }, [])
 
   useEffect(() => {
@@ -273,7 +277,7 @@ const clearActing = () => {
           <div className="grid grid-cols-2 gap-2">
             {themes.map((item) => (
               <button
-                key={item.id || "default"}
+                key={item.id}
                 type="button"
                 onClick={() => applyTheme(item.id)}
                 className={cn(

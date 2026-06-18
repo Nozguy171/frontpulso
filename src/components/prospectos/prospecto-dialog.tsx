@@ -402,8 +402,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[560px]">
+        <DialogHeader className="border-b px-4 py-4 sm:px-6">
           <DialogTitle>Agregar Nuevo Prospecto</DialogTitle>
           <DialogDescription>
             {collaborator
@@ -416,8 +416,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6">
             {showAssignSelect && (
               <div className="grid gap-2">
                 <Label>Asignar a *</Label>
@@ -601,7 +601,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t px-4 py-3 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
