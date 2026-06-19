@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 
 const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
@@ -45,6 +46,7 @@ prospect?: {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   estado?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
@@ -427,6 +429,7 @@ export function CitasView() {
   const [search, setSearch] = useState("")
 
   const [openCitaId, setOpenCitaId] = useState<number | null>(null)
+  const [detailProspecto, setDetailProspecto] = useState<any | null>(null)
 
   const selectedCita = useMemo(
     () => citas.find((c) => c.id === openCitaId) ?? citasDelDia.find((c) => c.id === openCitaId) ?? null,
@@ -439,6 +442,31 @@ export function CitasView() {
   const [prospectNotes, setProspectNotes] = useState<HistoryItemDTO[]>([])
   const [loadingNotes, setLoadingNotes] = useState(false)
   const [errorNotes, setErrorNotes] = useState<string | null>(null)
+  const [oldestNotesFirst, setOldestNotesFirst] = useState(false)
+
+  const prospectNoteRows = useMemo(() => {
+    const rows = [
+      ...prospectNotes.map((note) => ({
+        key: `note-${note.id}`,
+        at: note.created_at,
+        note,
+        creation: false,
+      })),
+      ...(selectedCita?.prospect?.created_at
+        ? [{
+            key: "creation",
+            at: selectedCita.prospect.created_at,
+            note: null,
+            creation: true,
+          }]
+        : []),
+    ]
+
+    return rows.sort((a, b) => {
+      const diff = +new Date(a.at) - +new Date(b.at)
+      return oldestNotesFirst ? diff : -diff
+    })
+  }, [prospectNotes, selectedCita?.prospect?.created_at, oldestNotesFirst])
 
   const refreshNotes = async (prospectId: number) => {
     setLoadingNotes(true)
@@ -922,6 +950,9 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   <Badge variant="secondary" className="truncate">
                     {cita.prospect?.numero ?? "—"}
                   </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
+                  </Badge>
                   <ProspectStatusBadge prospect={cita.prospect} />
 
 <Badge variant="outline" className={`text-xs ${statusStyles.badge}`}>
@@ -1049,8 +1080,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
-                                    <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
                                       <Badge variant="secondary">{cita.prospect?.numero ?? "—"}</Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
+                                      </Badge>
                                       <ProspectStatusBadge prospect={cita.prospect} />
 <Badge
   variant="outline"
@@ -1153,6 +1187,9 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                         <Badge variant="secondary" className="truncate">
                           {selectedCita.prospect?.numero ?? "—"}
                         </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Encuesta: {selectedCita.prospect?.numero_encuesta ?? "—"}
+                        </Badge>
                         <ProspectStatusBadge prospect={selectedCita.prospect} />
 <Badge
   variant="outline"
@@ -1167,6 +1204,17 @@ const statusStyles = getCitaStatusVisual(cita.estado)
     {selectedCita.prospect.forma_obtencion}
   </div>
 ) : null}
+                      {selectedCita.prospect ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => setDetailProspecto(selectedCita.prospect!)}
+                        >
+                          Ver prospecto
+                        </Button>
+                      ) : null}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 pt-1">
@@ -1207,62 +1255,61 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 
                     {/* ✅ HISTORIAL DE NOTAS DEL PROSPECTO (REAL: /history) */}
                     <div>
-                      <div className="text-xs text-muted-foreground mb-2">Historial de notas del prospecto</div>
+                      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-muted-foreground">Historial de notas del prospecto</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOldestNotesFirst((v) => !v)}
+                          className="h-8 w-fit text-xs"
+                        >
+                          {oldestNotesFirst ? "Más nuevo arriba" : "Más viejo arriba"}
+                        </Button>
+                      </div>
 
                       {loadingNotes ? (
                         <div className="text-sm text-muted-foreground">Cargando notas…</div>
                       ) : errorNotes ? (
                         <div className="text-sm text-red-500">{errorNotes}</div>
-                      ) : prospectNotes.length === 0 ? (
-                        <div className="space-y-2">
-                          {selectedCita.prospect?.created_at ? (
-                            <div className="rounded-md border p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
-                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
-                                </div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedCita.prospect.created_at)}</div>
-                              </div>
-                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
-                            </div>
-                          ) : null}
-                          <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
-                        </div>
+                      ) : prospectNoteRows.length === 0 ? (
+                        <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
                       ) : (
                         <div className="space-y-2">
-                          {selectedCita.prospect?.created_at ? (
-                            <div className="rounded-md border p-3">
+                          {prospectNoteRows.map((row) => row.creation ? (
+                            <div key={row.key} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div className="text-sm font-medium truncate">Prospecto obtenido</div>
                                   <Badge variant="outline" className="text-[10px]">Creación</Badge>
                                 </div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedCita.prospect.created_at)}</div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(row.at)}</div>
                               </div>
                               <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
                             </div>
-                          ) : null}
-                          {prospectNotes.map((n) => (
-                            <div key={n.id} className="rounded-md border p-3">
+                          ) : (
+                            <div key={row.key} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="text-sm font-medium truncate">{getAutor(n)}</div>
+                                  <div className="text-sm font-medium truncate">{getAutor(row.note!)}</div>
                                   <Badge variant="outline" className="text-[10px]">
-                                    {getHistoryNoteSource(n)}
+                                    {getHistoryNoteSource(row.note!)}
                                   </Badge>
                                 </div>
 
                                 <div className="text-xs text-muted-foreground">
-                                  {formatFechaHora(n.created_at)}
+                                  {formatFechaHora(row.note!.created_at)}
                                 </div>
                               </div>
 
                               <div className="mt-2 text-sm whitespace-pre-wrap break-words">
-                                {getHistoryNoteText(n)}
+                                {getHistoryNoteText(row.note!)}
                               </div>
                             </div>
                           ))}
+                          {prospectNotes.length === 0 ? (
+                            <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -1545,6 +1592,13 @@ const statusStyles = getCitaStatusVisual(cita.estado)
           </div>
         </DialogContent>
       </Dialog>
+      <ProspectoDetailDialog
+        prospecto={detailProspecto}
+        open={!!detailProspecto}
+        onOpenChange={(open) => !open && setDetailProspecto(null)}
+        onActionCompleted={refreshAll}
+        showActions={false}
+      />
     </AppLayout>
   )
 }

@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 
 const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
@@ -43,6 +44,7 @@ prospect?: {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   created_at?: string | null
@@ -538,6 +540,7 @@ const todayYMD = useMemo(() => ymd(startOfToday()), [])
 const [listFromDate, setListFromDate] = useState(todayYMD)
 const [listToDate, setListToDate] = useState(todayYMD)
 const [openLlamadaId, setOpenLlamadaId] = useState<number | null>(null)
+const [detailProspecto, setDetailProspecto] = useState<any | null>(null)
 
   const selectedLlamada = useMemo(
     () => llamadas.find((c) => c.id === openLlamadaId) ?? llamadasDelDia.find((c) => c.id === openLlamadaId) ?? null,
@@ -581,6 +584,31 @@ const overduePendingToYMD = useMemo(
   const [prospectNotes, setProspectNotes] = useState<HistoryItemDTO[]>([])
   const [loadingNotes, setLoadingNotes] = useState(false)
   const [errorNotes, setErrorNotes] = useState<string | null>(null)
+  const [oldestNotesFirst, setOldestNotesFirst] = useState(false)
+
+  const prospectNoteRows = useMemo(() => {
+    const rows = [
+      ...prospectNotes.map((note) => ({
+        key: `note-${note.id}`,
+        at: note.created_at,
+        note,
+        creation: false,
+      })),
+      ...(selectedLlamada?.prospect?.created_at
+        ? [{
+            key: "creation",
+            at: selectedLlamada.prospect.created_at,
+            note: null,
+            creation: true,
+          }]
+        : []),
+    ]
+
+    return rows.sort((a, b) => {
+      const diff = +new Date(a.at) - +new Date(b.at)
+      return oldestNotesFirst ? diff : -diff
+    })
+  }, [prospectNotes, selectedLlamada?.prospect?.created_at, oldestNotesFirst])
 
   const refreshNotes = async (prospectId: number) => {
     setLoadingNotes(true)
@@ -1187,6 +1215,9 @@ const llamadasListFiltradas = useMemo(() => {
                   <Badge variant="secondary" className="truncate">
                     {llamada.prospect?.numero ?? "—"}
                   </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
+                  </Badge>
                   <ProspectStatusBadge prospect={llamada.prospect} />
 <Badge variant="outline" className="text-xs">
   {llamada.estado_label ?? "Pendiente"}
@@ -1319,8 +1350,11 @@ const llamadasListFiltradas = useMemo(() => {
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                                       {llamada.prospect?.nombre ?? "—"}
                                     </h3>
-                                    <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
                                       <Badge variant="secondary">{llamada.prospect?.numero ?? "—"}</Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
+                                      </Badge>
                                       <ProspectStatusBadge prospect={llamada.prospect} />
 <Badge
   variant="outline"
@@ -1424,6 +1458,9 @@ const llamadasListFiltradas = useMemo(() => {
                         <Badge variant="secondary" className="truncate">
                           {selectedLlamada.prospect?.numero ?? "—"}
                         </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Encuesta: {selectedLlamada.prospect?.numero_encuesta ?? "—"}
+                        </Badge>
                         <ProspectStatusBadge prospect={selectedLlamada.prospect} />
 <Badge
   variant="outline"
@@ -1438,6 +1475,17 @@ const llamadasListFiltradas = useMemo(() => {
     {selectedLlamada.prospect.forma_obtencion}
   </div>
 ) : null}
+                      {selectedLlamada.prospect ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => setDetailProspecto(selectedLlamada.prospect)}
+                        >
+                          Ver prospecto
+                        </Button>
+                      ) : null}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 pt-1">
@@ -1470,62 +1518,61 @@ const llamadasListFiltradas = useMemo(() => {
 
                     {/* ✅ HISTORIAL DE NOTAS DEL PROSPECTO (REAL: /history) */}
                     <div>
-                      <div className="text-xs text-muted-foreground mb-2">Historial de notas del prospecto</div>
+                      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-muted-foreground">Historial de notas del prospecto</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOldestNotesFirst((v) => !v)}
+                          className="h-8 w-fit text-xs"
+                        >
+                          {oldestNotesFirst ? "Más nuevo arriba" : "Más viejo arriba"}
+                        </Button>
+                      </div>
 
                       {loadingNotes ? (
                         <div className="text-sm text-muted-foreground">Cargando notas…</div>
                       ) : errorNotes ? (
                         <div className="text-sm text-red-500">{errorNotes}</div>
-                      ) : prospectNotes.length === 0 ? (
-                        <div className="space-y-2">
-                          {selectedLlamada.prospect?.created_at ? (
-                            <div className="rounded-md border p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="text-sm font-medium truncate">Prospecto obtenido</div>
-                                  <Badge variant="outline" className="text-[10px]">Creación</Badge>
-                                </div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedLlamada.prospect.created_at)}</div>
-                              </div>
-                              <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
-                            </div>
-                          ) : null}
-                          <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
-                        </div>
+                      ) : prospectNoteRows.length === 0 ? (
+                        <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
                       ) : (
                         <div className="space-y-2">
-                          {selectedLlamada.prospect?.created_at ? (
-                            <div className="rounded-md border p-3">
+                          {prospectNoteRows.map((row) => row.creation ? (
+                            <div key={row.key} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div className="text-sm font-medium truncate">Prospecto obtenido</div>
                                   <Badge variant="outline" className="text-[10px]">Creación</Badge>
                                 </div>
-                                <div className="text-xs text-muted-foreground">{formatFechaHora(selectedLlamada.prospect.created_at)}</div>
+                                <div className="text-xs text-muted-foreground">{formatFechaHora(row.at)}</div>
                               </div>
                               <div className="mt-2 text-sm text-muted-foreground">Fecha de obtención del prospecto.</div>
                             </div>
-                          ) : null}
-                          {prospectNotes.map((n) => (
-                            <div key={n.id} className="rounded-md border p-3">
+                          ) : (
+                            <div key={row.key} className="rounded-md border p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="text-sm font-medium truncate">{getAutor(n)}</div>
+                                  <div className="text-sm font-medium truncate">{getAutor(row.note!)}</div>
                                   <Badge variant="outline" className="text-[10px]">
-                                    {getHistoryNoteSource(n)}
+                                    {getHistoryNoteSource(row.note!)}
                                   </Badge>
                                 </div>
 
                                 <div className="text-xs text-muted-foreground">
-                                  {formatFechaHora(n.created_at)}
+                                  {formatFechaHora(row.note!.created_at)}
                                 </div>
                               </div>
 
                               <div className="mt-2 text-sm whitespace-pre-wrap break-words">
-                                {getHistoryNoteText(n)}
+                                {getHistoryNoteText(row.note!)}
                               </div>
                             </div>
                           ))}
+                          {prospectNotes.length === 0 ? (
+                            <div className="text-sm text-muted-foreground italic">No hay notas registradas.</div>
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -1796,25 +1843,41 @@ const llamadasListFiltradas = useMemo(() => {
                       <div>
                         <div className="text-xs text-muted-foreground mb-1">Recomendado por</div>
                         {amigosData.recomendado_por ? (
-                          <div className="text-sm font-medium">
-                            {amigosData.recomendado_por.nombre} • {amigosData.recomendado_por.numero}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDetailProspecto(amigosData.recomendado_por)}
+                            className="w-full rounded-md border p-2 text-left text-sm hover:bg-muted/40"
+                          >
+                            <div className="font-medium">{amigosData.recomendado_por.nombre}</div>
+                            <div className="text-muted-foreground">
+                              {amigosData.recomendado_por.numero} · {amigosData.recomendado_por.estado_label ?? amigosData.recomendado_por.estado ?? "—"}
+                            </div>
+                          </button>
                         ) : (
                           <div className="text-sm text-muted-foreground italic">Nadie</div>
                         )}
                       </div>
 
                       <div>
-                        <div className="text-xs text-muted-foreground mb-1">Recomendados</div>
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Recomendados ({amigosData.recomendados.length})
+                        </div>
                         {amigosData.recomendados.length === 0 ? (
                           <div className="text-sm text-muted-foreground italic">No ha recomendado a nadie.</div>
                         ) : (
                           <div className="space-y-2">
                             {amigosData.recomendados.map((r: any) => (
-                              <div key={r.id} className="rounded-md border p-2 text-sm">
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => setDetailProspecto(r)}
+                                className="w-full rounded-md border p-2 text-left text-sm hover:bg-muted/40"
+                              >
                                 <div className="font-medium">{r.nombre}</div>
-                                <div className="text-muted-foreground">{r.numero}</div>
-                              </div>
+                                <div className="text-muted-foreground">
+                                  {r.numero} · {r.estado_label ?? r.estado ?? "—"}
+                                </div>
+                              </button>
                             ))}
                           </div>
                         )}
@@ -1852,6 +1915,13 @@ const llamadasListFiltradas = useMemo(() => {
           </div>
         </DialogContent>
       </Dialog>
+      <ProspectoDetailDialog
+        prospecto={detailProspecto}
+        open={!!detailProspecto}
+        onOpenChange={(open) => !open && setDetailProspecto(null)}
+        onActionCompleted={refreshAll}
+        showActions={false}
+      />
     </AppLayout>
   )
 }

@@ -21,6 +21,7 @@ type Prospecto = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   observaciones?: string | null
   estado: string
   recomendado_por_id?: number | null
@@ -248,6 +249,9 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
                                 <Badge variant="outline" className="font-mono text-xs">
                                   <PhoneIcon className="h-3 w-3 mr-1" />
                                   {prospecto.numero}
+                                </Badge>
+                                <Badge variant="secondary" className="font-mono text-xs">
+                                  Encuesta: {prospecto.numero_encuesta ?? "—"}
                                 </Badge>
                                 <ProspectStatusBadge prospect={prospecto} />
                               </div>

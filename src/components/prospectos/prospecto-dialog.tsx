@@ -43,6 +43,7 @@ type RecomendadorItem = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
 }
 
 type FormaObtencion = "encuesta" | "cita_en_frio" | "otro" | ""
@@ -70,6 +71,10 @@ function onlyDigitsMax10(v: string) {
   return (v ?? "").replace(/\D/g, "").slice(0, 10)
 }
 
+function onlyDigits(v: string) {
+  return (v ?? "").replace(/\D/g, "")
+}
+
 function getFormaObtencionTexto(
   tipo: FormaObtencion,
   otroTexto: string
@@ -87,6 +92,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
   const [formData, setFormData] = useState({
     nombre: "",
     numero: "",
+    numeroEncuesta: "",
     observaciones: "",
     recomendadoPorId: "",
     formaObtencionTipo: "" as FormaObtencion,
@@ -298,6 +304,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     if (loading) return false
     if (!formData.nombre.trim()) return false
     if (!phoneOk) return false
+    if (!formData.numeroEncuesta.trim()) return false
     if (!formaObtencionOk) return false
 
     if (collaborator) return true
@@ -310,6 +317,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
   }, [
     loading,
     formData.nombre,
+    formData.numeroEncuesta,
     phoneOk,
     formaObtencionOk,
     collaborator,
@@ -349,6 +357,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         body: JSON.stringify({
           nombre: formData.nombre.trim(),
           numero: formData.numero,
+          numero_encuesta: formData.numeroEncuesta.trim(),
           observaciones: formData.observaciones?.trim() || undefined,
           recomendado_por_id: formData.recomendadoPorId
             ? Number(formData.recomendadoPorId)
@@ -371,6 +380,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
       setFormData({
         nombre: "",
         numero: "",
+        numeroEncuesta: "",
         observaciones: "",
         recomendadoPorId: "",
         formaObtencionTipo: "",
@@ -416,7 +426,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form onSubmit={handleSubmit} autoComplete="off" className="flex min-h-0 flex-1 flex-col">
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6">
             {showAssignSelect && (
               <div className="grid gap-2">
@@ -456,6 +466,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               <Label htmlFor="nombre">Nombre *</Label>
               <Input
                 id="nombre"
+                autoComplete="new-password"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 required
@@ -467,7 +478,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               <Input
                 id="numero"
                 inputMode="numeric"
-                autoComplete="tel"
+                pattern="[0-9]*"
+                autoComplete="new-password"
                 placeholder="Ej: 6861234567"
                 value={formData.numero}
                 onChange={(e) =>
@@ -478,6 +490,19 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               <p className={`text-xs ${phoneOk ? "text-muted-foreground" : "text-destructive"}`}>
                 {phoneHint}
               </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="numero-encuesta">Número de encuesta *</Label>
+              <Input
+                id="numero-encuesta"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="new-password"
+                value={formData.numeroEncuesta}
+                onChange={(e) => setFormData({ ...formData, numeroEncuesta: onlyDigits(e.target.value) })}
+                required
+              />
             </div>
 
             <div className="grid gap-2">
@@ -519,6 +544,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               {formData.formaObtencionTipo === "otro" && (
                 <Input
                   placeholder="Escribe la forma de obtención..."
+                  autoComplete="new-password"
                   value={formData.formaObtencionOtro}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -538,7 +564,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                   <div className="min-w-0">
                     <div className="font-medium truncate">{recoSelected.nombre}</div>
                     <div className="text-xs text-muted-foreground font-mono truncate">
-                      {recoSelected.numero} • ID {recoSelected.id}
+                      {recoSelected.numero} • Encuesta: {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
                     </div>
                   </div>
 
@@ -557,6 +583,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                 <>
                   <Input
                     placeholder="Buscar recomendador por nombre..."
+                    autoComplete="new-password"
                     value={recoQuery}
                     onChange={(e) => setRecoQuery(e.target.value)}
                   />
@@ -577,7 +604,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                           >
                             <div className="font-medium">{p.nombre}</div>
                             <div className="font-mono text-xs text-muted-foreground">
-                              {p.numero} • ID {p.id}
+                              {p.numero} • Encuesta: {p.numero_encuesta ?? "—"} • ID {p.id}
                             </div>
                           </button>
                         ))
@@ -594,6 +621,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
               <Label htmlFor="observaciones">Observaciones (opcional)</Label>
               <Textarea
                 id="observaciones"
+                autoComplete="new-password"
                 value={formData.observaciones}
                 onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                 rows={3}

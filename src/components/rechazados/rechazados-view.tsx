@@ -28,6 +28,7 @@ type ProspectDTO = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
@@ -292,6 +293,9 @@ export function RechazadosView() {
                             <Badge variant="secondary" className="truncate">
                               {p.numero}
                             </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Encuesta: {p.numero_encuesta ?? "—"}
+                            </Badge>
 
                             <Badge variant="outline" className="text-xs">
                               {p.estado}
@@ -373,6 +377,9 @@ export function RechazadosView() {
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="secondary" className="truncate">
                           {selected.numero}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Encuesta: {selected.numero_encuesta ?? "—"}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {selected.estado}

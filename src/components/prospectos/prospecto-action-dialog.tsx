@@ -37,6 +37,7 @@ type ProspectoMini = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   estado?: string | null
 }
 
@@ -464,7 +465,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       </DialogDescription>
     </DialogHeader>
 
-    <form onSubmit={handleSubmitRechazo} className="space-y-4 pt-2">
+    <form onSubmit={handleSubmitRechazo} autoComplete="off" className="space-y-4 pt-2">
       <div className="space-y-2">
         <Label htmlFor="rechazo-motivo">Motivo</Label>
         <Textarea
@@ -539,7 +540,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
     <div className="min-w-0">
       <div className="font-medium">{amigosData.recomendado_por.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {amigosData.recomendado_por.numero} • ID {amigosData.recomendado_por.id}
+        {amigosData.recomendado_por.numero} • Encuesta: {amigosData.recomendado_por.numero_encuesta ?? "—"} • ID {amigosData.recomendado_por.id}
       </div>
     </div>
 
@@ -575,7 +576,7 @@ amigosData!.recomendados.map((p) => (
     <div className="min-w-0">
       <div className="font-medium">{p.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {p.numero} • {p.estado ?? "—"} • ID {p.id}
+        {p.numero} • Encuesta: {p.numero_encuesta ?? "—"} • {p.estado ?? "—"} • ID {p.id}
       </div>
     </div>
 
@@ -617,7 +618,7 @@ amigosData!.recomendados.map((p) => (
       </DialogDescription>
     </DialogHeader>
 
-    <form onSubmit={handleSubmitLlamadaAmigo} className="space-y-4 pt-2">
+    <form onSubmit={handleSubmitLlamadaAmigo} autoComplete="off" className="space-y-4 pt-2">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Fecha</Label>
@@ -703,7 +704,7 @@ amigosData!.recomendados.map((p) => (
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitCita} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmitCita} autoComplete="off" className="space-y-4 pt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha</Label>
@@ -797,7 +798,7 @@ amigosData!.recomendados.map((p) => (
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitLlamada} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmitLlamada} autoComplete="off" className="space-y-4 pt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha</Label>
@@ -878,7 +879,7 @@ amigosData!.recomendados.map((p) => (
             <DialogTitle className="text-lg sm:text-xl">Observaciones adicionales</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitObs} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmitObs} autoComplete="off" className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label htmlFor="obs-texto">Observaciones</Label>
               <Textarea

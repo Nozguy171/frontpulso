@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  ArrowLeft,
   Phone,
   Users,
   CalendarDays,
@@ -30,6 +31,7 @@ type ProspectoBase = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   observaciones?: string | null
   estado: string
   estado_label?: string | null
@@ -189,9 +191,18 @@ export function ProspectoDetailDialog({
   const [loading, setLoading] = useState(false)
   const [detail, setDetail] = useState<DetailResponse | null>(null)
   const [openActions, setOpenActions] = useState(false)
+  const [activeProspecto, setActiveProspecto] = useState<ProspectoBase | null>(prospecto)
+  const [prospectStack, setProspectStack] = useState<ProspectoBase[]>([])
+  const [oldestNotesFirst, setOldestNotesFirst] = useState(false)
 
   useEffect(() => {
-    if (!open || !prospecto?.id) return
+    if (!open) return
+    setActiveProspecto(prospecto)
+    setProspectStack([])
+  }, [open, prospecto?.id])
+
+  useEffect(() => {
+    if (!open || !activeProspecto?.id) return
 
     let alive = true
 
@@ -203,7 +214,7 @@ export function ProspectoDetailDialog({
         const token = localStorage.getItem("pulso_token")
         const actingAs = getActingAsUserId()
 
-        const res = await fetch(`${API_BASE_URL}/prospects/${prospecto.id}/detalle`, {
+        const res = await fetch(`${API_BASE_URL}/prospects/${activeProspecto.id}/detalle`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -233,40 +244,76 @@ export function ProspectoDetailDialog({
     return () => {
       alive = false
     }
-  }, [open, prospecto?.id])
+  }, [open, activeProspecto?.id])
 
-  const p = detail?.prospecto ?? prospecto
+  const p = detail?.prospecto ?? activeProspecto
+  const noteHistory = useMemo(() => {
+    return (detail?.historial ?? [])
+      .filter(isHistoryNoteLike)
+      .slice()
+      .sort((a, b) => {
+        const diff = +new Date(a.created_at) - +new Date(b.created_at)
+        return oldestNotesFirst ? diff : -diff
+      })
+  }, [detail?.historial, oldestNotesFirst])
+  const previousProspecto = prospectStack.length ? prospectStack[prospectStack.length - 1] : null
+  const openRelatedProspecto = (next: ProspectoBase) => {
+    if (p) setProspectStack((prev) => [...prev, p])
+    setActiveProspecto(next)
+  }
+  const goBackProspecto = () => {
+    const previous = prospectStack.at(-1)
+    if (!previous) return
+    setProspectStack((prev) => prev.slice(0, -1))
+    setActiveProspecto(previous)
+  }
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-[95vw] max-w-none sm:max-w-[820px] p-0 overflow-hidden">
           <div className="border-b bg-background/95 backdrop-blur">
-<div className="p-4 pr-16 sm:p-6 sm:pr-20 flex items-start justify-between gap-3">
-                  <DialogHeader className="min-w-0">
-                <DialogTitle className="text-lg sm:text-2xl truncate">
-                  {p?.nombre ?? "Prospecto"}
-                </DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">
-                  Información completa del prospecto
-                </DialogDescription>
-              </DialogHeader>
+            <div className="flex flex-col gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <DialogHeader className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <DialogTitle className="min-w-0 truncate text-lg sm:text-2xl">
+                      {p?.nombre ?? "Prospecto"}
+                    </DialogTitle>
+                    {previousProspecto ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={goBackProspecto}
+                        className="shrink-0"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Volver</span>
+                      </Button>
+                    ) : null}
+                  </div>
+                  <DialogDescription className="text-xs sm:text-sm">
+                    Información completa del prospecto
+                  </DialogDescription>
+                </DialogHeader>
 
-{p && showActions && (
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => setOpenActions(true)}
-    className="shrink-0 mr-2 sm:mr-3"
-  >
-    <MoreVertical className="h-4 w-4 mr-2" />
-    Acciones
-  </Button>
-)}
+                {p && showActions && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpenActions(true)}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    <MoreVertical className="h-4 w-4 mr-2" />
+                    Acciones
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
-          <ScrollArea className="max-h-[80vh]">
+          <ScrollArea key={activeProspecto?.id} className="max-h-[80vh]">
             <div className="p-4 sm:p-6 grid gap-4">
               {loading ? (
                 <div className="text-sm text-muted-foreground">Cargando detalle...</div>
@@ -295,6 +342,11 @@ export function ProspectoDetailDialog({
                             <Phone className="h-4 w-4" />
                             {p.numero}
                           </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-muted-foreground">Número de encuesta</div>
+                          <div className="font-medium mt-1">{p.numero_encuesta ?? "—"}</div>
                         </div>
 
                         <div>
@@ -377,6 +429,72 @@ export function ProspectoDetailDialog({
                       </div>
                       <div className="text-sm whitespace-pre-wrap">
                         {p.observaciones?.trim() || "—"}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Recomendaciones
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Recomendado por</div>
+                        {detail?.resumen?.recomendado_por ? (
+                          <button
+                            type="button"
+                            onClick={() => openRelatedProspecto(detail.resumen.recomendado_por!)}
+                            className="w-full rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">{detail.resumen.recomendado_por.nombre}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {detail.resumen.recomendado_por.numero} · Encuesta: {detail.resumen.recomendado_por.numero_encuesta ?? "—"}
+                                </div>
+                              </div>
+                              <Badge variant="secondary" className="w-fit">
+                                {detail.resumen.recomendado_por.estado_label ?? detail.resumen.recomendado_por.estado}
+                              </Badge>
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">—</div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">
+                          A quiénes recomendó ({detail?.recomendados?.length ?? 0})
+                        </div>
+                        {(detail?.recomendados ?? []).length === 0 ? (
+                          <div className="text-sm text-muted-foreground">No ha recomendado a nadie.</div>
+                        ) : (
+                          <div className="grid gap-2">
+                            {detail!.recomendados.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => openRelatedProspecto(r)}
+                                className="rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
+                              >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="font-medium truncate">{r.nombre}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {r.numero} · Encuesta: {r.numero_encuesta ?? "—"}
+                                    </div>
+                                  </div>
+                                  <Badge variant="secondary" className="w-fit">
+                                    {r.estado_label ?? r.estado}
+                                  </Badge>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -509,20 +627,27 @@ export function ProspectoDetailDialog({
                   </Card>
                   <Card>
   <CardContent className="p-4">
-    <div className="text-sm font-medium mb-3 flex items-center gap-2">
-      <FileText className="h-4 w-4" />
-      Historial de observaciones
+    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm font-medium flex items-center gap-2">
+        <FileText className="h-4 w-4" />
+        Historial de observaciones
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOldestNotesFirst((v) => !v)}
+        className="h-8 w-fit text-xs"
+      >
+        {oldestNotesFirst ? "Más nuevo arriba" : "Más viejo arriba"}
+      </Button>
     </div>
 
     <div className="space-y-3">
-      {(detail?.historial ?? []).filter(isHistoryNoteLike).length === 0 ? (
+      {noteHistory.length === 0 ? (
         <div className="text-sm text-muted-foreground">Sin observaciones.</div>
       ) : (
-        (detail?.historial ?? [])
-          .filter(isHistoryNoteLike)
-          .slice()
-          .reverse()
-          .map((h) => (
+        noteHistory.map((h) => (
             <div key={h.id} className="rounded-md border p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">

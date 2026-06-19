@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 
 
 
@@ -46,6 +47,7 @@ type SeguimientoItem = {
   id: number
   nombre: string
   numero: string
+  numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   estado: string
@@ -87,6 +89,7 @@ type SeguimientoDetailResponse = {
     id: number
     nombre: string
     numero: string
+    numero_encuesta?: string | null
     observaciones?: string | null
     estado: string
     estado_label?: string | null
@@ -276,6 +279,7 @@ export function SeguimientoView() {
   const todayYMD = useMemo(() => getTodayYMD(), [])
   // detalle
   const [openProspectId, setOpenProspectId] = useState<number | null>(null)
+  const [detailProspecto, setDetailProspecto] = useState<any | null>(null)
   const selected = useMemo(() => items.find((x) => x.id === openProspectId) ?? null, [items, openProspectId])
 const activos = useMemo(() => items.filter((p) => !!p.seguimiento_activo), [items])
 
@@ -309,6 +313,7 @@ const showPausadosSection = statusFilter === "todos" || statusFilter === "pausad
   const [obsHist, setObsHist] = useState<HistItem[]>([])
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
+  const [oldestNotesFirst, setOldestNotesFirst] = useState(false)
   const [detailData, setDetailData] = useState<SeguimientoDetailResponse | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
@@ -322,6 +327,12 @@ const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
   const [formHora, setFormHora] = useState("")
   const [formObs, setFormObs] = useState("")
 const selectedDetailProspect = detailData?.prospecto ?? null
+const orderedObsHist = useMemo(() => {
+  return obsHist.slice().sort((a, b) => {
+    const diff = +new Date(a.created_at) - +new Date(b.created_at)
+    return oldestNotesFirst ? diff : -diff
+  })
+}, [obsHist, oldestNotesFirst])
 const selectedVentas = detailData?.ventas ?? []
 const selectedVentasCount = detailData?.resumen?.ventas_count ?? 0
 const selectedVentasTotal = detailData?.resumen?.ventas_total_sin_iva ?? selected?.venta_monto_sin_iva ?? 0
@@ -598,6 +609,9 @@ const renderSeguimientoSection = (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Badge variant="secondary" className="max-w-[220px] truncate">
                               {p.numero}
+                            </Badge>
+                            <Badge variant="outline" className="text-[11px] sm:text-xs">
+                              Encuesta: {p.numero_encuesta ?? "—"}
                             </Badge>
                             <ProspectStatusBadge prospect={p} />
 
@@ -882,6 +896,9 @@ const renderSeguimientoSection = (
   <Badge variant="secondary" className="max-w-[320px] truncate">
     {selectedDetailProspect?.numero ?? selected.numero}
   </Badge>
+  <Badge variant="outline" className="text-xs">
+    Encuesta: {selectedDetailProspect?.numero_encuesta ?? selected.numero_encuesta ?? "—"}
+  </Badge>
   <ProspectStatusBadge prospect={selectedDetailProspect ?? selected} />
   <Badge variant="outline" className="text-xs">
     {selected.estado}
@@ -900,6 +917,15 @@ const renderSeguimientoSection = (
     {selectedDetailProspect?.forma_obtencion ?? selected.forma_obtencion}
   </div>
 ) : null}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-fit"
+                            onClick={() => setDetailProspecto(selectedDetailProspect ?? selected)}
+                          >
+                            Ver prospecto
+                          </Button>
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-2">
@@ -991,9 +1017,20 @@ const renderSeguimientoSection = (
 </Card>
                     <Card>
                       <CardContent className="p-5 sm:p-6">
-                        <div className="flex items-center gap-2">
-                          <StickyNote className="h-4 w-4 text-muted-foreground" />
-                          <div className="text-sm font-semibold">Observaciones</div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-2">
+                            <StickyNote className="h-4 w-4 text-muted-foreground" />
+                            <div className="text-sm font-semibold">Observaciones</div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOldestNotesFirst((v) => !v)}
+                            className="h-8 w-fit text-xs"
+                          >
+                            {oldestNotesFirst ? "Más nuevo arriba" : "Más viejo arriba"}
+                          </Button>
                         </div>
 
                         <div className="mt-4">
@@ -1001,9 +1038,9 @@ const renderSeguimientoSection = (
                             <div className="text-sm text-muted-foreground">Cargando observaciones…</div>
                           ) : obsError ? (
                             <div className="text-sm text-red-500">{obsError}</div>
-                          ) : obsHist.length > 0 ? (
+                          ) : orderedObsHist.length > 0 ? (
                             <div className="space-y-3">
-                              {obsHist.map((h) => (
+                              {orderedObsHist.map((h) => (
                                 <div key={h.id} className="rounded-xl border p-4">
                                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
@@ -1185,6 +1222,14 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
     if (!open) setResumeProspect(null)
   }}
   onSubmit={reanudarSeguimiento}
+/>
+
+<ProspectoDetailDialog
+  prospecto={detailProspecto}
+  open={!!detailProspecto}
+  onOpenChange={(open) => !open && setDetailProspecto(null)}
+  onActionCompleted={() => fetchSeguimiento()}
+  showActions={false}
 />
 
       {/* ayuda extra para scroll de ScrollArea */}
