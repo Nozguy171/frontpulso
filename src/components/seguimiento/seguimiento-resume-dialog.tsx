@@ -1,7 +1,7 @@
 // seguimiento-resume-dialog.tsx
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CalendarIcon, Clock } from "lucide-react"
+import { Clock } from "lucide-react"
 
 type ResumeProspect = {
   id: number
   nombre: string
   numero: string
+  seguimiento_pausado?: boolean
 }
 function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
   const el = ref.current
@@ -30,29 +31,14 @@ interface SeguimientoResumeDialogProps {
   onOpenChange: (open: boolean) => void
   prospect: ResumeProspect | null
   loading?: boolean
-  onSubmit: (payload: { fecha: string; hora: string }) => Promise<void> | void
+  onSubmit: (payload: { dia: string; hora: string }) => Promise<void> | void
 }
 
-function getNowLocalFechaHora() {
+function getNowLocalHora() {
   const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, "0")
-  const dd = String(now.getDate()).padStart(2, "0")
   const hh = String(now.getHours()).padStart(2, "0")
   const mi = String(now.getMinutes()).padStart(2, "0")
-
-  return {
-    fecha: `${yyyy}-${mm}-${dd}`,
-    hora: `${hh}:${mi}`,
-  }
-}
-
-function getTodayYMD() {
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, "0")
-  const dd = String(now.getDate()).padStart(2, "0")
-  return `${yyyy}-${mm}-${dd}`
+  return `${hh}:${mi}`
 }
 
 export function SeguimientoResumeDialog({
@@ -62,71 +48,62 @@ export function SeguimientoResumeDialog({
   loading = false,
   onSubmit,
 }: SeguimientoResumeDialogProps) {
-  const [fecha, setFecha] = useState("")
+  const [dia, setDia] = useState("1")
   const [hora, setHora] = useState("")
-  const todayYMD = useMemo(() => getTodayYMD(), [])
-const fechaInputRef = useRef<HTMLInputElement | null>(null)
 const horaInputRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (!open) return
-    const nowParts = getNowLocalFechaHora()
-    setFecha(nowParts.fecha)
-    setHora(nowParts.hora)
+    setDia("1")
+    setHora(getNowLocalHora())
   }, [open, prospect?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!fecha || !hora) {
-      alert("Fecha y hora son obligatorias")
+    if (!dia || !hora) {
+      alert("Día y hora son obligatorios")
       return
     }
 
-    if (fecha < todayYMD) {
-      alert("No puedes elegir una fecha anterior a hoy")
+    const diaNum = Number(dia)
+    if (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31) {
+      alert("El día debe estar entre 1 y 31")
       return
     }
 
-    await onSubmit({ fecha, hora })
+    await onSubmit({ dia, hora })
   }
+
+  const actionLabel = prospect?.seguimiento_pausado ? "Reanudar" : "Iniciar"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,96vw)] rounded-xl">
         <DialogHeader>
-          <DialogTitle>Reanudar seguimiento</DialogTitle>
+          <DialogTitle>{actionLabel} seguimiento</DialogTitle>
           <DialogDescription>
             {prospect
-              ? `Elige desde qué fecha y hora continuará el seguimiento de ${prospect.nombre}.`
-              : "Elige la nueva fecha y hora del seguimiento."}
+              ? `Elige el día y hora base del seguimiento de ${prospect.nombre}. La primera llamada se programará el próximo mes.`
+              : "Elige el día y hora base del seguimiento."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4 pt-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="resume-fecha" className="mb-1 block">
-                Fecha
+              <Label htmlFor="resume-dia" className="mb-1 block">
+                Día del mes
               </Label>
-<div className="relative">
-  <Input
-    id="resume-fecha"
-    ref={fechaInputRef}
-    type="date"
-    min={todayYMD}
-    value={fecha}
-    onChange={(e) => setFecha(e.target.value)}
-    className="pr-12 picker-dark-clean h-10"
-  />
-  <button
-    type="button"
-    onClick={() => openNativePicker(fechaInputRef)}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-white"
-    aria-label="Seleccionar fecha"
-  >
-    <CalendarIcon className="h-4 w-4" />
-  </button>
-</div>
+              <select
+                id="resume-dia"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              >
+                {Array.from({ length: 31 }, (_, index) => String(index + 1)).map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -164,7 +141,7 @@ const horaInputRef = useRef<HTMLInputElement | null>(null)
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : "Reanudar"}
+              {loading ? "Guardando..." : actionLabel}
             </Button>
           </div>
         </form>

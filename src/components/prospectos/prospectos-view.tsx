@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -191,7 +190,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   const prospectos = activeTab === "pendientes" ? prospectosPendientes : prospectosSinRespuesta
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Header */}
 <div className="mb-6 sm:mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -455,6 +454,6 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
     }}
   />
 )}
-    </AppLayout>
+    </>
   )
 }

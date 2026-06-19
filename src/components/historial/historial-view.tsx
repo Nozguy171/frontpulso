@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -344,7 +343,7 @@ forma_obtencion: p.forma_obtencion,
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Historial</h1>
@@ -724,6 +723,6 @@ forma_obtencion: p.forma_obtencion,
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   )
 }

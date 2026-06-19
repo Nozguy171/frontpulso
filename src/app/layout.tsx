@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { ClientShell } from "@/components/layout/client-shell"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -20,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        {children}
+        <ClientShell>{children}</ClientShell>
         <Analytics />
       </body>
     </html>

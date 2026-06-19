@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,8 +20,6 @@ import {
 
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
-
-const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
 type ProspectDTO = {
   id: number
@@ -243,7 +240,7 @@ export function RechazadosView() {
   }, [items])
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Rechazados</h1>
@@ -496,6 +493,6 @@ export function RechazadosView() {
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   )
 }

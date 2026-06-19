@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { cn } from "@/lib/utils"
 import {
   Users,
@@ -19,8 +19,12 @@ import {
   UserCheck,
   UserX,
   Palette,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { API_BASE_URL } from "@/lib/api"
 import { clearActing as clearActingLS, getActingId, onActingChange } from "@/lib/acting"
 
@@ -38,19 +42,12 @@ const menuItems = [
   { href: "/colaboradores", label: "Colaboradores", icon: UserCog, leaderOnly: true },
 ]
 
-const DEFAULT_THEME = "royal-gold"
+const DEFAULT_THEME = "royal-emerald"
 const themes = [
-  { id: "royal-gold", label: "Rey", colors: ["#c8a24a", "#31538d", "#6db7d8", "#d47a4a", "#10192b"] },
-  { id: "royal-ruby", label: "Rey rubí", colors: ["#d7a84f", "#b91c4d", "#f97316", "#7dd3fc", "#170b12"] },
   { id: "royal-emerald", label: "Rey esmeralda", colors: ["#d6ad50", "#21a36f", "#38bdf8", "#f472b6", "#091713"] },
-  { id: "royal-sapphire", label: "Rey zafiro", colors: ["#d9b75d", "#3b82f6", "#22d3ee", "#fb7185", "#071226"] },
   { id: "royal-amethyst", label: "Rey amatista", colors: ["#d2aa52", "#8b5cf6", "#f472b6", "#22d3ee", "#130d24"] },
-  { id: "royal-obsidian", label: "Rey obsidiana", colors: ["#c79a2b", "#651f32", "#2563eb", "#16a34a", "#0d0b09"] },
-  { id: "royal-bronze", label: "Rey bronce", colors: ["#d89b3d", "#c56a2d", "#0ea5e9", "#84cc16", "#1d140d"] },
+  { id: "royal-sapphire", label: "Rey zafiro", colors: ["#d9b75d", "#3b82f6", "#22d3ee", "#fb7185", "#071226"] },
   { id: "royal-ivory", label: "Rey marfil", colors: ["#946b24", "#183b6b", "#0f766e", "#be123c", "#f6efdf"] },
-  { id: "royal-teal", label: "Rey turquesa", colors: ["#d6ad50", "#14b8a6", "#38bdf8", "#f97316", "#08191d"] },
-  { id: "royal-wine", label: "Rey vino", colors: ["#d8a24a", "#93335f", "#06b6d4", "#65a30d", "#180c16"] },
-  { id: "royal-cobalt", label: "Rey cobalto", colors: ["#d5ad55", "#6366f1", "#14b8a6", "#fb7185", "#0b1024"] },
 ]
 const themeIds = themes.map((item) => item.id)
 
@@ -59,6 +56,7 @@ type MeUser = {
   email: string
   role?: string | null
   tenant_id?: number | null
+  theme?: string | null
 }
 
 type ListUsersResp = {
@@ -84,6 +82,18 @@ async function apiGet(path: string) {
   return txt ? JSON.parse(txt) : {}
 }
 
+async function apiPatch(path: string, body: unknown) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: { ...getAuthAndActingHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  const txt = await res.text()
+  const data = txt ? JSON.parse(txt) : {}
+  if (!res.ok) throw new Error(data?.message || "Error")
+  return data
+}
+
 function normalizeRoleLabel(role?: string | null) {
   const r = (role || "").toLowerCase()
   if (r === "leader" || r === "lider" || r === "admin") return "Líder"
@@ -102,6 +112,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const [actingEmail, setActingEmail] = useState<string>("")
   const [loadingActing, setLoadingActing] = useState(false)
   const [theme, setTheme] = useState("")
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsError, setSettingsError] = useState("")
+  const [settingsMessage, setSettingsMessage] = useState("")
 
   const isLeader = useMemo(() => {
     const rol = (me?.role || "").toLowerCase()
@@ -115,13 +132,39 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     router.push("/")
   }
 
-  const applyTheme = (value: string) => {
+  const applyTheme = (value: string, remember = true) => {
     const next = themeIds.includes(value) ? value : DEFAULT_THEME
     document.documentElement.dataset.theme = next
     document.body.dataset.theme = next
-    localStorage.setItem("pulso_theme", next)
+    if (remember) localStorage.setItem("pulso_theme", next)
     setTheme(next)
   }
+
+const saveSettings = async (event: FormEvent) => {
+  event.preventDefault()
+  setSavingSettings(true)
+  setSettingsError("")
+  setSettingsMessage("")
+  try {
+    const data = await apiPatch("/users/me/settings", {
+      theme,
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    })
+    const nextTheme = data?.user?.theme || theme
+    applyTheme(nextTheme)
+    setMe((prev) => prev ? { ...prev, theme: nextTheme } : prev)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setSettingsMessage("Ajustes guardados.")
+  } catch (e) {
+    setSettingsError(e instanceof Error ? e.message : "No se pudo guardar.")
+  } finally {
+    setSavingSettings(false)
+  }
+}
 
 const clearActing = () => {
   clearActingLS()
@@ -140,6 +183,7 @@ const clearActing = () => {
         if (cancelled) return
         const u = (data?.user ?? data) as MeUser
         setMe(u)
+        applyTheme(u.theme || localStorage.getItem("pulso_theme") || DEFAULT_THEME)
       })
       .catch(() => {
         if (cancelled) return
@@ -155,7 +199,7 @@ const clearActing = () => {
   }, [])
 
   useEffect(() => {
-    applyTheme(localStorage.getItem("pulso_theme") || DEFAULT_THEME)
+    applyTheme(localStorage.getItem("pulso_theme") || DEFAULT_THEME, false)
   }, [])
 
   useEffect(() => {
@@ -270,33 +314,6 @@ const clearActing = () => {
       {/* Bottom */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
         <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <Palette className="h-3.5 w-3.5" />
-            Estilo
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {themes.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => applyTheme(item.id)}
-                className={cn(
-                  "h-9 rounded-md border px-2 text-[11px] text-sidebar-foreground flex items-center gap-2 hover:bg-sidebar-accent",
-                  theme === item.id ? "border-primary bg-sidebar-accent" : "border-sidebar-border",
-                )}
-              >
-                <span className="flex -space-x-1">
-                  {item.colors.map((color) => (
-                    <span key={color} className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: color }} />
-                  ))}
-                </span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
           <p className="text-xs text-muted-foreground mb-1">Usuario</p>
 
           <p className="text-sm font-semibold text-sidebar-foreground truncate">
@@ -329,6 +346,66 @@ const clearActing = () => {
             </div>
           ) : null}
         </div>
+
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full justify-start gap-3 h-10">
+              <Settings className="h-[18px] w-[18px]" />
+              Ajustes
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ajustes</DialogTitle>
+              <DialogDescription>Estilo y contraseña de esta cuenta.</DialogDescription>
+            </DialogHeader>
+
+            <form className="space-y-5" onSubmit={saveSettings}>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Palette className="h-4 w-4" />
+                  Estilo
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {themes.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => applyTheme(item.id, false)}
+                      className={cn(
+                        "h-10 rounded-md border px-2 text-xs flex items-center gap-2 hover:bg-accent hover:text-accent-foreground",
+                        theme === item.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-foreground",
+                      )}
+                    >
+                      <span className="flex -space-x-1">
+                        {item.colors.map((color) => (
+                          <span key={color} className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                        ))}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="current-password">Contraseña actual</Label>
+                <Input id="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                <Label htmlFor="new-password">Nueva contraseña</Label>
+                <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                <Label htmlFor="confirm-password">Confirmar nueva contraseña</Label>
+                <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+              </div>
+
+              {settingsError ? <p className="text-sm text-destructive">{settingsError}</p> : null}
+              {settingsMessage ? <p className="text-sm text-muted-foreground">{settingsMessage}</p> : null}
+
+              <Button type="submit" className="w-full" disabled={savingSettings}>
+                {savingSettings ? "Guardando..." : "Guardar ajustes"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <Button
           variant="ghost"

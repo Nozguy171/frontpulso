@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,8 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
-
-const AppLayout = dynamic(() => import("@/components/layout/app-layout").then((m) => m.AppLayout), { ssr: false })
 
 type LlamadaDTO = {
   id: number
@@ -1097,7 +1094,7 @@ const llamadasListFiltradas = useMemo(() => {
   )
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Llamadas</h1>
@@ -1922,6 +1919,6 @@ const llamadasListFiltradas = useMemo(() => {
         onActionCompleted={refreshAll}
         showActions={false}
       />
-    </AppLayout>
+    </>
   )
 }

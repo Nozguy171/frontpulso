@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -340,7 +339,7 @@ export function EstadisticasView() {
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="p-8">
         <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
@@ -839,6 +838,6 @@ export function EstadisticasView() {
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   )
 }

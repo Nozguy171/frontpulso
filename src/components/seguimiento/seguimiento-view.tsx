@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -130,20 +129,6 @@ async function apiGet(path: string) {
     throw new Error(txt || "Error")
   }
   return res.json()
-}
-
-function getNowLocalFechaHora() {
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, "0")
-  const dd = String(now.getDate()).padStart(2, "0")
-  const hh = String(now.getHours()).padStart(2, "0")
-  const mi = String(now.getMinutes()).padStart(2, "0")
-
-  return {
-    fecha: `${yyyy}-${mm}-${dd}`,
-    hora: `${hh}:${mi}`,
-  }
 }
 
 function getTodayYMD() {
@@ -416,31 +401,7 @@ const selectedVentasTotal = detailData?.resumen?.ventas_total_sin_iva ?? selecte
   }, [openProspectId])
 const iniciarSeguimiento = async (p: SeguimientoItem) => {
   if (p.seguimiento_activo) return
-
-  // si ya estaba pausado, ahora abre modal para reanudar
-  if (p.seguimiento_pausado) {
-    setResumeProspect(p)
-    return
-  }
-
-  const { fecha, hora } = getNowLocalFechaHora()
-
-  setSaving(true)
-  try {
-    await apiPost(`/prospects/${p.id}/acciones`, {
-      accion: "iniciar_seguimiento",
-      fecha,
-      hora,
-    })
-    await fetchSeguimiento()
-    if (openProspectId === p.id) {
-      await fetchObsHistory(p.id)
-    }
-  } catch (e: any) {
-    alert(e?.message || "No se pudo iniciar seguimiento")
-  } finally {
-    setSaving(false)
-  }
+  setResumeProspect(p)
 }
 const pausarSeguimiento = async (p: SeguimientoItem) => {
   setSaving(true)
@@ -456,7 +417,7 @@ const pausarSeguimiento = async (p: SeguimientoItem) => {
     setSaving(false)
   }
 }
-const reanudarSeguimiento = async (payload: { fecha: string; hora: string }) => {
+const reanudarSeguimiento = async (payload: { dia: string; hora: string }) => {
   if (!resumeProspect) return
 
   const p = resumeProspect
@@ -465,7 +426,7 @@ const reanudarSeguimiento = async (payload: { fecha: string; hora: string }) => 
   try {
     await apiPost(`/prospects/${p.id}/acciones`, {
       accion: "iniciar_seguimiento",
-      fecha: payload.fecha,
+      dia: payload.dia,
       hora: payload.hora,
     })
 
@@ -476,7 +437,7 @@ const reanudarSeguimiento = async (payload: { fecha: string; hora: string }) => 
       await fetchObsHistory(p.id)
     }
   } catch (e: any) {
-    alert(e?.message || "No se pudo reanudar seguimiento")
+    alert(e?.message || `No se pudo ${p.seguimiento_pausado ? "reanudar" : "iniciar"} seguimiento`)
   } finally {
     setSaving(false)
   }
@@ -731,7 +692,7 @@ const renderSeguimientoSection = (
   )
 }
   return (
-    <AppLayout>
+    <>
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <div className="mb-4 sm:mb-6 lg:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">Seguimiento</h1>
@@ -1239,6 +1200,6 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
           -webkit-overflow-scrolling: touch;
         }
       `}</style>
-    </AppLayout>
+    </>
   )
 }

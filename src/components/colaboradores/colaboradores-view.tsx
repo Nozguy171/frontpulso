@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -260,7 +259,7 @@ export function ColaboradoresView() {
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
 
         {/* Header */}
@@ -424,6 +423,6 @@ export function ColaboradoresView() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   )
 }
