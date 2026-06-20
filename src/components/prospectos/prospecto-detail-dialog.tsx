@@ -194,6 +194,7 @@ export function ProspectoDetailDialog({
   const [activeProspecto, setActiveProspecto] = useState<ProspectoBase | null>(prospecto)
   const [prospectStack, setProspectStack] = useState<ProspectoBase[]>([])
   const [oldestNotesFirst, setOldestNotesFirst] = useState(false)
+  const [oldestHistoryFirst, setOldestHistoryFirst] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -256,6 +257,12 @@ export function ProspectoDetailDialog({
         return oldestNotesFirst ? diff : -diff
       })
   }, [detail?.historial, oldestNotesFirst])
+  const history = useMemo(() => {
+    return (detail?.historial ?? []).slice().sort((a, b) => {
+      const diff = +new Date(a.created_at) - +new Date(b.created_at)
+      return oldestHistoryFirst ? diff : -diff
+    })
+  }, [detail?.historial, oldestHistoryFirst])
   const previousProspecto = prospectStack.length ? prospectStack[prospectStack.length - 1] : null
   const openRelatedProspecto = (next: ProspectoBase) => {
     if (p) setProspectStack((prev) => [...prev, p])
@@ -675,16 +682,27 @@ export function ProspectoDetailDialog({
 </Card>
                   <Card>
                     <CardContent className="p-4">
-                      <div className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Historial
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-sm font-medium flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Historial
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOldestHistoryFirst((v) => !v)}
+                          className="h-8 w-fit text-xs"
+                        >
+                          {oldestHistoryFirst ? "Más nuevo arriba" : "Más viejo arriba"}
+                        </Button>
                       </div>
 
                       <div className="space-y-3">
-                        {(detail?.historial ?? []).length === 0 ? (
+                        {history.length === 0 ? (
                           <div className="text-sm text-muted-foreground">Sin historial.</div>
                         ) : (
-                          detail!.historial.map((h) => (
+                          history.map((h) => (
                             <div key={h.id} className="rounded-md border p-3">
                               <div className="font-medium">{h.accion_label ?? h.accion}</div>
                               <div className="text-xs text-muted-foreground">

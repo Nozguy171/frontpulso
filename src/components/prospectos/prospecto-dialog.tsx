@@ -304,7 +304,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     if (loading) return false
     if (!formData.nombre.trim()) return false
     if (!phoneOk) return false
-    if (!formData.numeroEncuesta.trim()) return false
+    if (formData.formaObtencionTipo === "encuesta" && !formData.numeroEncuesta.trim()) return false
     if (!formaObtencionOk) return false
 
     if (collaborator) return true
@@ -318,6 +318,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     loading,
     formData.nombre,
     formData.numeroEncuesta,
+    formData.formaObtencionTipo,
     phoneOk,
     formaObtencionOk,
     collaborator,
@@ -357,7 +358,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         body: JSON.stringify({
           nombre: formData.nombre.trim(),
           numero: formData.numero,
-          numero_encuesta: formData.numeroEncuesta.trim(),
+          numero_encuesta:
+            formData.formaObtencionTipo === "encuesta" ? formData.numeroEncuesta.trim() : undefined,
           observaciones: formData.observaciones?.trim() || undefined,
           recomendado_por_id: formData.recomendadoPorId
             ? Number(formData.recomendadoPorId)
@@ -493,19 +495,6 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="numero-encuesta">Número de encuesta *</Label>
-              <Input
-                id="numero-encuesta"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="new-password"
-                value={formData.numeroEncuesta}
-                onChange={(e) => setFormData({ ...formData, numeroEncuesta: onlyDigits(e.target.value) })}
-                required
-              />
-            </div>
-
-            <div className="grid gap-2">
               <Label>Forma de obtención *</Label>
 
               <RadioGroup
@@ -515,6 +504,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                     ...prev,
                     formaObtencionTipo: value,
                     formaObtencionOtro: value === "otro" ? prev.formaObtencionOtro : "",
+                    numeroEncuesta: value === "encuesta" ? prev.numeroEncuesta : "",
                   }))
                 }
                 className="flex flex-wrap items-center gap-6"
@@ -555,6 +545,21 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                 />
               )}
             </div>
+
+            {formData.formaObtencionTipo === "encuesta" && (
+              <div className="grid gap-2">
+                <Label htmlFor="numero-encuesta">Número de encuesta *</Label>
+                <Input
+                  id="numero-encuesta"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="new-password"
+                  value={formData.numeroEncuesta}
+                  onChange={(e) => setFormData({ ...formData, numeroEncuesta: onlyDigits(e.target.value) })}
+                  required
+                />
+              </div>
+            )}
 
             <div className="grid gap-2">
               <Label>Recomendado por (opcional)</Label>

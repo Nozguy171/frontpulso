@@ -960,7 +960,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 
               {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? (
                 <CitaActionsMenu
-                  allowDoneAction={cita.estado === "programada"}
+                  allowDoneAction={false}
                   allowScheduleActions={cita.estado === "programada"}
                   allowSaleAction={!isSoldLikeAppointment(cita)}
                   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
@@ -1093,7 +1093,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                   </div>
 
                                   {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? <CitaActionsMenu
-  allowDoneAction={cita.estado === "programada"}
+  allowDoneAction={false}
   allowScheduleActions={cita.estado === "programada"}
   allowSaleAction={!isSoldLikeAppointment(cita)}
   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}

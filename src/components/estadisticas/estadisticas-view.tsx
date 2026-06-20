@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { API_BASE_URL } from "@/lib/api"
+import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { BarChart3, TrendingUp, Users, Target, DollarSign, Award, Calendar, Phone } from "lucide-react"
 import {
   Bar,
@@ -89,6 +90,9 @@ interface StatsDetailItem {
   titulo: string
   fecha?: string | null
   detalle?: string | null
+  estado?: string | null
+  estado_label?: string | null
+  conclusion?: string | null
   prospect_id?: number | null
 }
 
@@ -253,6 +257,12 @@ export function EstadisticasView() {
   const [detailItems, setDetailItems] = useState<StatsDetailItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [selectedProspect, setSelectedProspect] = useState<{
+    id: number
+    nombre: string
+    numero: string
+    estado: string
+  } | null>(null)
 
   const availableYears = useMemo(() => {
     const years = stats?.ventas_chart?.available_years ?? []
@@ -336,6 +346,12 @@ export function EstadisticasView() {
       collab_year: collabYear,
       collab_month: collabMonth,
     })
+  }
+
+  function openProspectDetails(item: StatsDetailItem) {
+    if (!item.prospect_id) return
+    setDetailOpen(false)
+    setSelectedProspect({ id: item.prospect_id, nombre: item.titulo, numero: "", estado: "" })
   }
 
   return (
@@ -823,21 +839,44 @@ export function EstadisticasView() {
               <div className="rounded-lg border p-4 text-sm text-muted-foreground">No hay registros para esta métrica.</div>
             ) : (
               detailItems.map((item) => (
-                <div key={`${item.tipo}-${item.id}`} className="rounded-lg border bg-card p-4">
+                <button
+                  key={`${item.tipo}-${item.id}`}
+                  type="button"
+                  disabled={!item.prospect_id}
+                  onClick={() => openProspectDetails(item)}
+                  className="w-full rounded-lg border bg-card p-4 text-left transition-colors enabled:hover:border-primary/50 enabled:hover:bg-muted/30 disabled:cursor-default"
+                >
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold text-foreground">{item.titulo}</div>
                       <div className="text-sm text-muted-foreground">{formatDate(item.fecha)}</div>
                     </div>
-                    <Badge variant="outline">{item.tipo}</Badge>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {item.estado_label && <Badge variant="secondary">{item.estado_label}</Badge>}
+                      <Badge variant="outline">{item.tipo}</Badge>
+                    </div>
                   </div>
                   {item.detalle && <div className="text-sm text-muted-foreground">{item.detalle}</div>}
-                </div>
+                  {item.conclusion && (
+                    <div className="mt-2 rounded-md bg-muted px-3 py-2 text-sm">
+                      <span className="font-medium text-foreground">Conclusión:</span>{" "}
+                      <span className="text-muted-foreground">{item.conclusion}</span>
+                    </div>
+                  )}
+                  {item.prospect_id && <div className="mt-2 text-xs font-medium text-primary">Ver información completa</div>}
+                </button>
               ))
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      <ProspectoDetailDialog
+        prospecto={selectedProspect}
+        open={!!selectedProspect}
+        onOpenChange={(open) => !open && setSelectedProspect(null)}
+        showActions={false}
+      />
     </>
   )
 }
