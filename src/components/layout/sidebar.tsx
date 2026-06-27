@@ -20,6 +20,8 @@ import {
   UserX,
   Palette,
   Settings,
+  ShieldCheck,
+  FileText,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -27,22 +29,25 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { API_BASE_URL } from "@/lib/api"
 import { clearActing as clearActingLS, getActingId, onActingChange } from "@/lib/acting"
+import { PULSO_ADMIN_ENABLED } from "@/lib/features"
 
 const menuItems = [
   { href: "/prospectos", label: "Prospectos", icon: Users },
   { href: "/citas", label: "Citas", icon: Calendar },
   { href: "/seguimiento", label: "Seguimiento", icon: TrendingUp },
+  { href: "/documentos", label: "Documentos", icon: FileText },
   { href: "/llamadas", label: "Llamadas", icon: Phone },
   { href: "/rechazados", label: "Rechazados", icon: XCircle },
 
   // leader only
   { href: "/anexados", label: "Anexados", icon: Archive, leaderOnly: true },
   { href: "/historial", label: "Historial", icon: History },
-  { href: "/estadisticas", label: "Estadísticas", icon: BarChart3, leaderOnly: true },
+  { href: "/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/colaboradores", label: "Colaboradores", icon: UserCog, leaderOnly: true },
+  { href: "/admin", label: "Administración", icon: ShieldCheck, adminOnly: true },
 ]
 
-const DEFAULT_THEME = "royal-emerald"
+const DEFAULT_THEME = "royal-sapphire"
 const themes = [
   { id: "royal-emerald", label: "Rey esmeralda", colors: ["#d6ad50", "#21a36f", "#38bdf8", "#f472b6", "#091713"] },
   { id: "royal-amethyst", label: "Rey amatista", colors: ["#d2aa52", "#8b5cf6", "#f472b6", "#22d3ee", "#130d24"] },
@@ -57,6 +62,7 @@ type MeUser = {
   role?: string | null
   tenant_id?: number | null
   theme?: string | null
+  is_platform_admin?: boolean
 }
 
 type ListUsersResp = {
@@ -288,6 +294,7 @@ const clearActing = () => {
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           if (item.leaderOnly && !isLeader) return null
+          if (item.adminOnly && (!PULSO_ADMIN_ENABLED || !me?.is_platform_admin)) return null
 
           const isActive = pathname === item.href
           const Icon = item.icon

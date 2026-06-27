@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
+import { PULSO_ADMIN_ENABLED } from "@/lib/features";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function LoginPage() {
         if (data.access_token) {
           localStorage.setItem("pulso_token", data.access_token);
         }
-        router.push("/prospectos");
+        router.push(PULSO_ADMIN_ENABLED && data.user?.is_platform_admin ? "/admin" : "/prospectos");
       }
     } catch (err) {
       console.error(err);

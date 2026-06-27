@@ -20,6 +20,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
 
 import { Calendar as CalendarIcon, Phone, XCircle, Users, FileText, Clock, X } from "lucide-react"
 
@@ -107,6 +108,8 @@ const rechazoMotivoValido = rechazoMotivoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
   const [citaFecha, setCitaFecha] = useState<Date | undefined>()
   const [citaHora, setCitaHora] = useState("")
   const [citaUbicacion, setCitaUbicacion] = useState("")
+  const [citaUbicacionLat, setCitaUbicacionLat] = useState<number | null>(null)
+  const [citaUbicacionLng, setCitaUbicacionLng] = useState<number | null>(null)
   const [citaObs, setCitaObs] = useState("")
 const citaTimeInputRef = React.useRef<HTMLInputElement | null>(null)
 const llamadaTimeInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -216,11 +219,16 @@ const handleSubmitRechazo = async (e: React.FormEvent) => {
       fecha: toYMD(citaFecha),
       hora: citaHora,
       ubicacion: citaUbicacion.trim(),
+      ubicacion_lat: citaUbicacionLat,
+      ubicacion_lng: citaUbicacionLng,
       observaciones: citaObs.trim() || undefined,
     })
 
     if (ok) {
       setOpenCita(false)
+      setCitaUbicacion("")
+      setCitaUbicacionLat(null)
+      setCitaUbicacionLng(null)
       setCitaObs("")
     }
   }
@@ -752,12 +760,18 @@ amigosData!.recomendados.map((p) => (
 
             <div className="space-y-2">
               <Label htmlFor="cita-ubicacion">Ubicación</Label>
-              <Input
-                id="cita-ubicacion"
-                placeholder="Consultorio, café, domicilio, etc."
-                value={citaUbicacion}
-                onChange={(e) => setCitaUbicacion(e.target.value)}
-                className="h-11"
+              <AppointmentLocationPicker
+                inputId="cita-ubicacion"
+                value={{
+                  ubicacion: citaUbicacion,
+                  ubicacion_lat: citaUbicacionLat,
+                  ubicacion_lng: citaUbicacionLng,
+                }}
+                onChange={(next) => {
+                  setCitaUbicacion(next.ubicacion)
+                  setCitaUbicacionLat(next.ubicacion_lat)
+                  setCitaUbicacionLng(next.ubicacion_lng)
+                }}
               />
             </div>
 

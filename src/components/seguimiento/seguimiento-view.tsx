@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
+import { ProspectDocumentsPanel } from "@/components/prospectos/prospect-documents-panel"
 
 
 
@@ -321,6 +322,7 @@ const orderedObsHist = useMemo(() => {
 const selectedVentas = detailData?.ventas ?? []
 const selectedVentasCount = detailData?.resumen?.ventas_count ?? 0
 const selectedVentasTotal = detailData?.resumen?.ventas_total_sin_iva ?? selected?.venta_monto_sin_iva ?? 0
+const selectedHasVenta = selectedVentasCount > 0 || selected?.venta_monto_sin_iva != null || selectedDetailProspect?.venta_monto_sin_iva != null
   const resetForms = () => {
     setFormFecha("")
     setFormHora("")
@@ -976,6 +978,7 @@ const renderSeguimientoSection = (
     </div>
   </CardContent>
 </Card>
+{selectedHasVenta && selected ? <ProspectDocumentsPanel prospectId={selected.id} /> : null}
                     <Card>
                       <CardContent className="p-5 sm:p-6">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

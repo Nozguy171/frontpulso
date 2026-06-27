@@ -8,6 +8,6 @@ const plainRoutes = ["/", "/login", "/signup", "/auth/signup-collaborator"]
 
 export function ClientShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  if (plainRoutes.includes(pathname)) return <>{children}</>
+  if (plainRoutes.includes(pathname) || pathname.startsWith("/admin")) return <>{children}</>
   return <AppLayout>{children}</AppLayout>
 }

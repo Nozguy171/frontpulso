@@ -29,11 +29,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
+import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
+import { AppointmentLocationPicker, getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
 
 type CitaDTO = {
   id: number
   fecha_hora: string
   ubicacion: string
+  ubicacion_lat?: number | null
+  ubicacion_lng?: number | null
   observaciones?: string | null
   estado: string
   estado_label?: string | null
@@ -427,6 +431,7 @@ export function CitasView() {
 
   const [openCitaId, setOpenCitaId] = useState<number | null>(null)
   const [detailProspecto, setDetailProspecto] = useState<any | null>(null)
+  const [documentsProspecto, setDocumentsProspecto] = useState<any | null>(null)
 
   const selectedCita = useMemo(
     () => citas.find((c) => c.id === openCitaId) ?? citasDelDia.find((c) => c.id === openCitaId) ?? null,
@@ -461,7 +466,9 @@ export function CitasView() {
 
     return rows.sort((a, b) => {
       const diff = +new Date(a.at) - +new Date(b.at)
-      return oldestNotesFirst ? diff : -diff
+      if (diff !== 0) return oldestNotesFirst ? diff : -diff
+      if (!oldestNotesFirst) return 0
+      return Number(b.creation) - Number(a.creation)
     })
   }, [prospectNotes, selectedCita?.prospect?.created_at, oldestNotesFirst])
 
@@ -532,6 +539,8 @@ export function CitasView() {
   const [formFecha, setFormFecha] = useState("")
   const [formHora, setFormHora] = useState("")
   const [formUbicacion, setFormUbicacion] = useState("")
+  const [formUbicacionLat, setFormUbicacionLat] = useState<number | null>(null)
+  const [formUbicacionLng, setFormUbicacionLng] = useState<number | null>(null)
   const [formObs, setFormObs] = useState("")
 const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("")
 const [formMontoConIva, setFormMontoConIva] = useState("")
@@ -558,6 +567,8 @@ const resetActionForms = () => {
   setFormFecha("")
   setFormHora("")
   setFormUbicacion("")
+  setFormUbicacionLat(null)
+  setFormUbicacionLng(null)
   setFormObs("")
   setFormMotivo("")
   setFormTipoVenta("")
@@ -618,6 +629,8 @@ const onCitaAction = (
       setFormFecha(`${yyyy}-${mm}-${dd}`)
       setFormHora(`${hh}:${mi}`)
       setFormUbicacion(cita.ubicacion || "")
+      setFormUbicacionLat(cita.ubicacion_lat ?? null)
+      setFormUbicacionLng(cita.ubicacion_lng ?? null)
       setFormObs(cita.observaciones || "")
       setActionOpen({ type: "reagendar", cita })
       return
@@ -663,6 +676,8 @@ if (action === "programar_llamada") {
         fecha: formFecha,
         hora: formHora,
         ubicacion: formUbicacion.trim(),
+        ubicacion_lat: formUbicacionLat,
+        ubicacion_lng: formUbicacionLng,
         observaciones: formObs?.trim() || null,
       })
       }
@@ -722,7 +737,7 @@ if (!Number.isFinite(ivaMontoCalculado) || ivaMontoCalculado < 0) {
   return
 }
 
-await apiPost(`/prospects/${prospectId}/acciones`, {
+const sold = await apiPost(`/prospects/${prospectId}/acciones`, {
   accion: "vendido",
   appointment_id: actionOpen.cita.id,
   tipo_venta: formTipoVenta,
@@ -731,6 +746,7 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
   fecha: formFecha,
   hora: formHora,
 })
+setDocumentsProspecto(sold?.prospecto ?? actionOpen.cita.prospect ?? { id: prospectId })
 }
 
 if (actionOpen.type === "rechazado") {
@@ -1011,8 +1027,8 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 
           {/* CALENDARIO */}
           <TabsContent value="calendar">
-            <div className="grid lg:grid-cols-[360px_1fr] gap-4 sm:gap-6 items-start">
-              <Card className="lg:sticky lg:top-6">
+            <div className="grid gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
+              <Card className="w-full">
                 <CardHeader className="py-4">
                   <CardTitle className="text-lg flex items-center justify-between">
                     <span>Seleccionar fecha</span>
@@ -1020,14 +1036,17 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   </CardTitle>
                 </CardHeader>
 
-                <CardContent className="flex justify-center pb-6">
+                <CardContent className="flex justify-center px-3 pb-6 sm:px-6">
                   <Calendar
                     mode="single"
                     selected={date}
                     onSelect={setDate}
                     month={visibleMonth}
                     onMonthChange={setVisibleMonth}
-                    className="rounded-md border w-full"
+                    className="mx-auto w-full max-w-[520px] rounded-md border [--cell-size:clamp(2.35rem,4.2vw,3.15rem)]"
+                    classNames={{
+                      root: "w-full max-w-[520px]",
+                    }}
                     modifiers={modifiers}
                     modifiersClassNames={{
                       booked:
@@ -1236,6 +1255,19 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                         <div className="min-w-0">
                           <div className="text-muted-foreground text-xs">Ubicación</div>
                           <div className="break-words font-medium">{selectedCita.ubicacion}</div>
+                          <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
+                            <a
+                              href={getAppointmentGoogleMapsUrl({
+                                ubicacion: selectedCita.ubicacion,
+                                ubicacion_lat: selectedCita.ubicacion_lat ?? null,
+                                ubicacion_lng: selectedCita.ubicacion_lng ?? null,
+                              })}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Abrir en Google Maps
+                            </a>
+                          </Button>
                         </div>
                       </div>
 
@@ -1408,10 +1440,17 @@ const statusStyles = getCitaStatusVisual(cita.estado)
     {actionOpen?.type === "reagendar" ? (
       <div>
         <div className="text-xs text-muted-foreground mb-1">Ubicación</div>
-        <Input
-          value={formUbicacion}
-          onChange={(e) => setFormUbicacion(e.target.value)}
-          placeholder="Ej: Casa del prospecto"
+        <AppointmentLocationPicker
+          value={{
+            ubicacion: formUbicacion,
+            ubicacion_lat: formUbicacionLat,
+            ubicacion_lng: formUbicacionLng,
+          }}
+          onChange={(next) => {
+            setFormUbicacion(next.ubicacion)
+            setFormUbicacionLat(next.ubicacion_lat)
+            setFormUbicacionLng(next.ubicacion_lng)
+          }}
         />
       </div>
     ) : null}
@@ -1595,6 +1634,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
         onOpenChange={(open) => !open && setDetailProspecto(null)}
         onActionCompleted={refreshAll}
         showActions={false}
+      />
+      <ProspectDocumentsDialog
+        prospecto={documentsProspecto}
+        open={!!documentsProspecto}
+        onOpenChange={(open) => !open && setDocumentsProspecto(null)}
       />
     </>
   )

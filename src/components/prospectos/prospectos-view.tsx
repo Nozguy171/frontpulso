@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon, UserCheck } from "lucide-react"
+import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon, UserCheck, DollarSign } from "lucide-react"
 import { ProspectoDialog } from "./prospecto-dialog"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectosGlobalSearch } from "./prospectos-global-search"
@@ -42,7 +43,13 @@ type ProspectStats = {
   total_general: number
   pendientes: number
   sin_respuesta: number
+  ventas_mes_monto: number
 }
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value)
+}
+
 function getActingAsUserIdSafe(): string | null {
   const v = typeof window !== "undefined" ? localStorage.getItem("pulso_acting_user_id") : null
   if (!v) return null
@@ -134,22 +141,34 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
     total_general: Number(payload.total_general ?? 0),
     pendientes: Number(payload.pendientes ?? 0),
     sin_respuesta: Number(payload.sin_respuesta ?? 0),
+    ventas_mes_monto: 0,
   } as ProspectStats
+  }
+
+  const fetchDashboardStats = async () => {
+    const res = await fetch(`${API_BASE_URL}/stats/dashboard`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message ?? "Error al cargar estadísticas")
+    return { ventas_mes_monto: Number(data?.kpis?.ventas_mes_monto ?? 0) }
   }
 
   async function loadProspects() {
     try {
       setLoading(true)
 
-      const [pend, sinResp, statsData] = await Promise.all([
+      const [pend, sinResp, statsData, dashboardStats] = await Promise.all([
         fetchProspects({ estado: "pendiente" }),
         fetchProspects({ estado: "sin_respuesta" }),
         fetchStats(),
+        fetchDashboardStats(),
       ])
 
       setProspectosPendientes(pend)
       setProspectosSinRespuesta(sinResp)
-      setStats(statsData)
+      setStats({ ...statsData, ...dashboardStats })
     } catch (err) {
       console.error(err)
       alert("No se pudieron cargar los prospectos")
@@ -230,17 +249,19 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   </Card>
 
   {/* Total Clientes */}
-  <Card className="border-emerald-500/30 bg-emerald-500/5 backdrop-blur">
-    <CardContent className="p-4 sm:p-6">
-      <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
-        <UserCheck className="h-4 w-4" />
-        Total Clientes
-      </p>
-      <p className="mt-2 text-2xl sm:text-3xl font-bold text-emerald-600 leading-none">
-        {stats?.total_clientes ?? 0}
-      </p>
-    </CardContent>
-  </Card>
+  <Link href="/seguimiento" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Card className="h-full cursor-pointer border-emerald-500/30 bg-emerald-500/5 backdrop-blur transition-colors hover:border-emerald-500/70 hover:bg-emerald-500/10">
+      <CardContent className="p-4 sm:p-6">
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <UserCheck className="h-4 w-4" />
+          Total Clientes
+        </p>
+        <p className="mt-2 text-2xl sm:text-3xl font-bold text-emerald-600 leading-none">
+          {stats?.total_clientes ?? 0}
+        </p>
+      </CardContent>
+    </Card>
+  </Link>
 
   {/* Pendientes */}
   <Card className="border-primary/30 bg-primary/5 backdrop-blur">
@@ -255,18 +276,20 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
     </CardContent>
   </Card>
 
-  {/* Sin Respuesta */}
-  <Card className="border-warning/30 bg-warning/5 backdrop-blur">
-    <CardContent className="p-4 sm:p-6">
-      <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
-        <PhoneIcon className="h-4 w-4" />
-        Sin Respuesta
-      </p>
-      <p className="mt-2 text-2xl sm:text-3xl font-bold text-warning leading-none">
-        {stats?.sin_respuesta ?? prospectosSinRespuesta.length}
-      </p>
-    </CardContent>
-  </Card>
+  {/* Ventas del Mes */}
+  <Link href="/estadisticas" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Card className="h-full cursor-pointer border-primary/30 bg-primary/5 backdrop-blur transition-colors hover:border-primary/70 hover:bg-primary/10">
+      <CardContent className="p-4 sm:p-6">
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          Ventas del mes
+        </p>
+        <p className="mt-2 text-xl sm:text-3xl font-bold text-primary leading-none break-words">
+          {formatCurrency(stats?.ventas_mes_monto ?? 0)}
+        </p>
+      </CardContent>
+    </Card>
+  </Link>
 </div>
 
         {/* Search + buttons */}
@@ -439,7 +462,6 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   onOpenChange={(open) => !open && setDetailProspecto(null)}
   onActionCompleted={() => {
     loadProspects()
-    setDetailProspecto(null)
   }}
 />
 

@@ -26,6 +26,8 @@ import {
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectStatusBadge } from "./prospect-status-badge"
+import { ProspectDocumentsPanel } from "./prospect-documents-panel"
+import { getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
 
 type ProspectoBase = {
   id: number
@@ -59,12 +61,16 @@ type DetailResponse = {
     llamadas_count: number
     ventas_count: number
     ventas_total_sin_iva: number
+    documentos_count?: number
+    documentos_total?: number
   }
   recomendados: ProspectoBase[]
   citas: Array<{
     id: number
     fecha_hora: string | null
     ubicacion: string | null
+    ubicacion_lat?: number | null
+    ubicacion_lng?: number | null
     observaciones: string | null
     estado: string
     estado_label?: string | null
@@ -95,6 +101,11 @@ type DetailResponse = {
     call_id?: number | null
     created_at: string | null
   }>
+  documentos?: Array<{
+    type: string
+    label: string
+    uploaded: boolean
+  }>
   historial: Array<{
     id: number
     accion: string
@@ -120,7 +131,7 @@ interface ProspectoDetailDialogProps {
   prospecto: ProspectoBase | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onActionCompleted?: () => void
+  onActionCompleted?: (updated?: ProspectoBase) => void
   showActions?: boolean
 }
 
@@ -179,6 +190,10 @@ function getHistoryNoteText(item: DetailResponse["historial"][number]) {
 
 function getHistoryNoteAuthor(item: DetailResponse["historial"][number]) {
   return item.effective?.email || item.actor?.email || "—"
+}
+
+function isProspectCreated(item: Pick<DetailResponse["historial"][number], "accion">) {
+  return item.accion === "crear_prospecto"
 }
 
 export function ProspectoDetailDialog({
@@ -260,7 +275,9 @@ export function ProspectoDetailDialog({
   const history = useMemo(() => {
     return (detail?.historial ?? []).slice().sort((a, b) => {
       const diff = +new Date(a.created_at) - +new Date(b.created_at)
-      return oldestHistoryFirst ? diff : -diff
+      if (diff !== 0) return oldestHistoryFirst ? diff : -diff
+      if (!oldestHistoryFirst) return 0
+      return Number(isProspectCreated(b)) - Number(isProspectCreated(a))
     })
   }, [detail?.historial, oldestHistoryFirst])
   const previousProspecto = prospectStack.length ? prospectStack[prospectStack.length - 1] : null
@@ -440,6 +457,8 @@ export function ProspectoDetailDialog({
                     </CardContent>
                   </Card>
 
+                  {p.venta_monto_sin_iva != null ? <ProspectDocumentsPanel prospectId={p.id} /> : null}
+
                   <Card>
                     <CardContent className="p-4 space-y-3">
                       <div className="text-sm font-medium flex items-center gap-2">
@@ -526,6 +545,21 @@ export function ProspectoDetailDialog({
                                 <div className="text-sm text-muted-foreground">
                                   {cita.ubicacion || "Sin ubicación"}
                                 </div>
+                                {cita.ubicacion ? (
+                                  <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
+                                    <a
+                                      href={getAppointmentGoogleMapsUrl({
+                                        ubicacion: cita.ubicacion,
+                                        ubicacion_lat: cita.ubicacion_lat ?? null,
+                                        ubicacion_lng: cita.ubicacion_lng ?? null,
+                                      })}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      Abrir en Google Maps
+                                    </a>
+                                  </Button>
+                                ) : null}
 <div className="text-xs mt-1">
   Estado: {cita.estado_label ?? cita.estado}
 </div>
@@ -740,10 +774,13 @@ export function ProspectoDetailDialog({
     prospecto={p}
     open={openActions}
     onOpenChange={setOpenActions}
-    onActionCompleted={() => {
+    onActionCompleted={(updated) => {
       setOpenActions(false)
-      onOpenChange(false)
-      onActionCompleted?.()
+      if (updated) {
+        setActiveProspecto(updated)
+        setDetail((prev) => prev ? { ...prev, prospecto: { ...prev.prospecto, ...updated } } : prev)
+      }
+      onActionCompleted?.(updated)
     }}
   />
 )}

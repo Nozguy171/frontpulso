@@ -1,0 +1,1 @@
+export const PULSO_ADMIN_ENABLED = process.env.NEXT_PUBLIC_PULSO_ADMIN_ENABLED === "1"

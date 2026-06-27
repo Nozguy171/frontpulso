@@ -46,7 +46,6 @@
     linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent) 0 1px, transparent 1px 18px);
 }
 
-:root,
 [data-theme="royal-emerald"] {
   --background: #091713;
   --foreground: #eef8e8;
@@ -83,6 +82,7 @@
     repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 1px, transparent 1px 14px);
 }
 
+:root,
 [data-theme="royal-sapphire"] {
   --background: #071226;
   --foreground: #edf4ff;

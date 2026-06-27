@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
+import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
+import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
 
 type LlamadaDTO = {
   id: number
@@ -116,36 +118,15 @@ function ymd(d: Date) {
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
 }
-function addDays(base: Date, days: number) {
-  const d = new Date(base)
-  d.setDate(d.getDate() + days)
-  return d
-}
-
 function startOfToday() {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   return d
 }
 
-function parseYMDLocal(value: string) {
-  const [y, m, d] = value.split("-").map(Number)
-  return new Date(y, (m || 1) - 1, d || 1)
-}
-
 function normalizeYmdRange(a: string, b: string) {
   if (a <= b) return { from: a, to: b }
   return { from: b, to: a }
-}
-
-function mergeUniqueLlamadas(groups: LlamadaDTO[][]) {
-  const map = new Map<number, LlamadaDTO>()
-  for (const group of groups) {
-    for (const item of group) {
-      map.set(item.id, item)
-    }
-  }
-  return Array.from(map.values())
 }
 
 function formatDiaLargo(d?: Date) {
@@ -172,6 +153,13 @@ function formatFechaHora(iso?: string | null) {
   if (!iso) return ""
   const d = new Date(iso)
   return d.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
+}
+
+function localDateTimeParam(d = new Date()) {
+  const hh = String(d.getHours()).padStart(2, "0")
+  const mm = String(d.getMinutes()).padStart(2, "0")
+  const ss = String(d.getSeconds()).padStart(2, "0")
+  return `${ymd(d)}T${hh}:${mm}:${ss}`
 }
 
 function isHistoryNoteLike(item: HistoryItemDTO) {
@@ -378,6 +366,11 @@ function shouldHideCallManagementActions(llamada: LlamadaDTO) {
 function shouldHideCallRejectLikeActions(llamada: LlamadaDTO) {
   return isMonthlyFollowupCall(llamada) || isSoldLikeCall(llamada)
 }
+
+function canMarkCallDone(llamada: LlamadaDTO) {
+  return (llamada.prospect?.estado ?? "").toLowerCase() !== "pendiente"
+}
+
 function LlamadaActionsMenu({
   onAction,
   allowRejectLike = true,
@@ -526,6 +519,7 @@ export function LlamadasView() {
   const [errorList, setErrorList] = useState<string | null>(null)
 
   const [diasConLlamadasSet, setDiasConLlamadasSet] = useState<Set<string>>(new Set())
+  const [diasConLlamadasVencidasSet, setDiasConLlamadasVencidasSet] = useState<Set<string>>(new Set())
   const [loadingDays, setLoadingDays] = useState(false)
 
   const [llamadasDelDia, setLlamadasDelDia] = useState<LlamadaDTO[]>([])
@@ -538,6 +532,7 @@ const [listFromDate, setListFromDate] = useState(todayYMD)
 const [listToDate, setListToDate] = useState(todayYMD)
 const [openLlamadaId, setOpenLlamadaId] = useState<number | null>(null)
 const [detailProspecto, setDetailProspecto] = useState<any | null>(null)
+const [documentsProspecto, setDocumentsProspecto] = useState<any | null>(null)
 
   const selectedLlamada = useMemo(
     () => llamadas.find((c) => c.id === openLlamadaId) ?? llamadasDelDia.find((c) => c.id === openLlamadaId) ?? null,
@@ -551,10 +546,6 @@ const normalizedListRange = useMemo(
   [listFromDate, listToDate, todayYMD]
 )
 
-const overduePendingToYMD = useMemo(
-  () => ymd(addDays(parseYMDLocal(normalizedListRange.from), -1)),
-  [normalizedListRange.from]
-)
   // ✅ amigos
   const [amigosData, setAmigosData] = useState<AmigosResponse | null>(null)
   const [loadingAmigos, setLoadingAmigos] = useState(false)
@@ -603,7 +594,9 @@ const overduePendingToYMD = useMemo(
 
     return rows.sort((a, b) => {
       const diff = +new Date(a.at) - +new Date(b.at)
-      return oldestNotesFirst ? diff : -diff
+      if (diff !== 0) return oldestNotesFirst ? diff : -diff
+      if (!oldestNotesFirst) return 0
+      return Number(b.creation) - Number(a.creation)
     })
   }, [prospectNotes, selectedLlamada?.prospect?.created_at, oldestNotesFirst])
 
@@ -675,6 +668,8 @@ const overduePendingToYMD = useMemo(
   const [formFecha, setFormFecha] = useState("")
   const [formHora, setFormHora] = useState("")
   const [formUbicacion, setFormUbicacion] = useState("")
+  const [formUbicacionLat, setFormUbicacionLat] = useState<number | null>(null)
+  const [formUbicacionLng, setFormUbicacionLng] = useState<number | null>(null)
   const [formObs, setFormObs] = useState("")
   const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("")
   const [formMontoConIva, setFormMontoConIva] = useState("")
@@ -704,6 +699,8 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     setFormFecha("")
     setFormHora("")
     setFormUbicacion("")
+    setFormUbicacionLat(null)
+    setFormUbicacionLng(null)
     setFormObs("")
     setFormTipoVenta("")
     setFormMontoConIva("")
@@ -713,28 +710,34 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
 const refreshAll = async () => {
   const base = visibleMonth ?? new Date()
   const { from, to } = monthRange(base)
+  const nowLocal = localDateTimeParam()
 
-  const [rangeData, overduePendingData, daysData, dayData] = await Promise.all([
+  const [rangeData, daysData, overdueDaysData, dayData] = await Promise.all([
     apiGet(
       `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
         normalizedListRange.to
       )}&estado=pendiente&limit=200`
     ),
-    apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
     apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
+    apiGet(
+      `/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(
+        ymd(to)
+      )}&estado=pendiente&before=${encodeURIComponent(nowLocal)}`
+    ),
     date ? apiGet(`/calls/?day=${encodeURIComponent(ymd(date))}`) : Promise.resolve({ llamadas: [] }),
   ])
 
-  setLlamadas(
-    mergeUniqueLlamadas([
-      (overduePendingData.llamadas || []) as LlamadaDTO[],
-      (rangeData.llamadas || []) as LlamadaDTO[],
-    ])
-  )
+  setLlamadas((rangeData.llamadas || []) as LlamadaDTO[])
 
+  const days = (daysData as DaysResponse).days || []
   const s = new Set<string>()
-  for (const d of (daysData.days || []) as any[]) s.add(d.day)
+  for (const d of days) s.add(d.day)
   setDiasConLlamadasSet(s)
+
+  const overdueDays = (overdueDaysData as DaysResponse).days || []
+  const vencidas = new Set<string>()
+  for (const d of overdueDays) vencidas.add(d.day)
+  setDiasConLlamadasVencidasSet(vencidas)
 
   setLlamadasDelDia((dayData.llamadas || []) as LlamadaDTO[])
 }
@@ -745,6 +748,7 @@ const onLlamadaAction = (
 ) => {
     const estadoLlamada = (llamada.estado || "").toLowerCase()
     if (estadoLlamada !== "pendiente" && !(estadoLlamada === "hecha" && ["vendido", "observaciones"].includes(action))) return
+    if (action === "marcar_hecha" && !canMarkCallDone(llamada)) return
 
     resetActionForms()
 
@@ -888,6 +892,8 @@ if (action === "ver_amigos") {
           fecha: formFecha,
           hora: formHora,
           ubicacion: formUbicacion.trim(),
+          ubicacion_lat: formUbicacionLat,
+          ubicacion_lng: formUbicacionLng,
           observaciones: formObs?.trim() || null,
         })
       }
@@ -940,7 +946,7 @@ if (!Number.isFinite(ivaMontoCalculado) || ivaMontoCalculado < 0) {
   return
 }
 
-await apiPost(`/prospects/${prospectId}/acciones`, {
+const sold = await apiPost(`/prospects/${prospectId}/acciones`, {
   accion: "vendido",
   call_id: actionOpen.llamada.id,
   tipo_venta: formTipoVenta,
@@ -949,6 +955,7 @@ await apiPost(`/prospects/${prospectId}/acciones`, {
   fecha: formFecha,
   hora: formHora,
 })
+setDocumentsProspecto(sold?.prospecto ?? actionOpen.llamada.prospect ?? { id: prospectId })
       }
 
 if (actionOpen.type === "rechazado") {
@@ -983,23 +990,15 @@ useEffect(() => {
   setLoadingList(true)
   setErrorList(null)
 
-  Promise.all([
-    apiGet(
-      `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
-        normalizedListRange.to
-      )}&estado=pendiente&limit=200`
-    ),
-    apiGet(`/calls/?to=${encodeURIComponent(overduePendingToYMD)}&estado=pendiente&limit=200`),
-  ])
-    .then(([rangeData, overduePendingData]) => {
+  apiGet(
+    `/calls/?from=${encodeURIComponent(normalizedListRange.from)}&to=${encodeURIComponent(
+      normalizedListRange.to
+    )}&estado=pendiente&limit=200`
+  )
+    .then((rangeData) => {
       if (cancelled) return
 
-      setLlamadas(
-        mergeUniqueLlamadas([
-          (overduePendingData.llamadas || []) as LlamadaDTO[],
-          (rangeData.llamadas || []) as LlamadaDTO[],
-        ])
-      )
+      setLlamadas((rangeData.llamadas || []) as LlamadaDTO[])
     })
     .catch((e) => {
       if (cancelled) return
@@ -1012,24 +1011,38 @@ useEffect(() => {
   return () => {
     cancelled = true
   }
-}, [normalizedListRange.from, normalizedListRange.to, overduePendingToYMD])
+}, [normalizedListRange.from, normalizedListRange.to])
 
   useEffect(() => {
     let cancelled = false
     const base = visibleMonth ?? new Date()
     const { from, to } = monthRange(base)
+    const nowLocal = localDateTimeParam()
 
     setLoadingDays(true)
 
-apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`)      .then((data: DaysResponse) => {
+Promise.all([
+  apiGet(`/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}`),
+  apiGet(
+    `/calls/days?from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(
+      ymd(to)
+    )}&estado=pendiente&before=${encodeURIComponent(nowLocal)}`
+  ),
+])
+      .then(([data, overdueData]: [DaysResponse, DaysResponse]) => {
         if (cancelled) return
         const s = new Set<string>()
         for (const d of data.days || []) s.add(d.day)
         setDiasConLlamadasSet(s)
+
+        const vencidas = new Set<string>()
+        for (const d of overdueData.days || []) vencidas.add(d.day)
+        setDiasConLlamadasVencidasSet(vencidas)
       })
       .catch(() => {
         if (cancelled) return
         setDiasConLlamadasSet(new Set())
+        setDiasConLlamadasVencidasSet(new Set())
       })
       .finally(() => {
         if (!cancelled) setLoadingDays(false)
@@ -1088,9 +1101,13 @@ const llamadasListFiltradas = useMemo(() => {
 
   const modifiers = useMemo(
     () => ({
-      scheduled: (day: Date) => diasConLlamadasSet.has(ymd(day)),
+      overdue: (day: Date) => diasConLlamadasVencidasSet.has(ymd(day)),
+      scheduled: (day: Date) => {
+        const dayKey = ymd(day)
+        return diasConLlamadasSet.has(dayKey) && !diasConLlamadasVencidasSet.has(dayKey)
+      },
     }),
-    [diasConLlamadasSet]
+    [diasConLlamadasSet, diasConLlamadasVencidasSet]
   )
 
   return (
@@ -1163,7 +1180,7 @@ const llamadasListFiltradas = useMemo(() => {
     </div>
 
     <div className="text-[11px] text-muted-foreground">
-      También se incluyen llamadas pendientes atrasadas sin finalizar.
+      El listado respeta solo el rango seleccionado. Las pendientes vencidas fuera del rango se marcan en rojo en el calendario.
     </div>
 
     <div className="w-full xl:w-[360px]">
@@ -1228,7 +1245,7 @@ const llamadasListFiltradas = useMemo(() => {
 
               {["pendiente", "hecha"].includes((llamada.estado || "").toLowerCase()) ? (
 <LlamadaActionsMenu
-  allowDoneAction={llamada.estado === "pendiente"}
+  allowDoneAction={llamada.estado === "pendiente" && canMarkCallDone(llamada)}
   allowManagementActions={llamada.estado === "pendiente"}
   allowSaleAction={!isMonthlyFollowupCall(llamada) && !isSoldLikeCall(llamada)}
   allowRejectLike={llamada.estado === "pendiente" && !shouldHideCallRejectLikeActions(llamada)}
@@ -1279,8 +1296,8 @@ const llamadasListFiltradas = useMemo(() => {
 
           {/* CALENDARIO */}
           <TabsContent value="calendar">
-            <div className="grid lg:grid-cols-[360px_1fr] gap-4 sm:gap-6 items-start">
-              <Card className="lg:sticky lg:top-6">
+            <div className="grid gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
+              <Card className="w-full">
                 <CardHeader className="py-4">
                   <CardTitle className="text-lg flex items-center justify-between">
                     <span>Seleccionar fecha</span>
@@ -1288,20 +1305,37 @@ const llamadasListFiltradas = useMemo(() => {
                   </CardTitle>
                 </CardHeader>
 
-                <CardContent className="flex justify-center pb-6">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    month={visibleMonth}
-                    onMonthChange={setVisibleMonth}
-                    className="rounded-md border w-full"
-                    modifiers={modifiers}
-                    modifiersClassNames={{
-                      scheduled:
-                        "relative font-semibold text-primary after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
-                    }}
-                  />
+                <CardContent className="flex justify-center px-3 pb-6 sm:px-6">
+                  <div className="w-full max-w-[520px] space-y-3">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      month={visibleMonth}
+                      onMonthChange={setVisibleMonth}
+                      className="mx-auto w-full rounded-md border [--cell-size:clamp(2.35rem,4.2vw,3.15rem)]"
+                      classNames={{
+                        root: "w-full",
+                      }}
+                      modifiers={modifiers}
+                      modifiersClassNames={{
+                        overdue:
+                          "relative font-bold !bg-red-600 !text-white shadow-[0_0_0_2px_rgba(239,68,68,0.35)] hover:!bg-red-700 after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-white",
+                        scheduled:
+                          "relative font-semibold text-primary after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
+                      }}
+                    />
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        Con llamadas
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium text-red-600 dark:text-red-400">
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
+                        Pendiente vencida
+                      </span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1364,7 +1398,7 @@ const llamadasListFiltradas = useMemo(() => {
 
                                   {["pendiente", "hecha"].includes((llamada.estado || "").toLowerCase()) ? (
 <LlamadaActionsMenu
-  allowDoneAction={llamada.estado === "pendiente"}
+  allowDoneAction={llamada.estado === "pendiente" && canMarkCallDone(llamada)}
   allowManagementActions={llamada.estado === "pendiente"}
   allowSaleAction={!isMonthlyFollowupCall(llamada) && !isSoldLikeCall(llamada)}
   allowRejectLike={llamada.estado === "pendiente" && !shouldHideCallRejectLikeActions(llamada)}
@@ -1680,10 +1714,17 @@ const llamadasListFiltradas = useMemo(() => {
                 {actionOpen?.type === "agendar_cita" ? (
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Ubicación</div>
-                    <Input
-                      value={formUbicacion}
-                      onChange={(e) => setFormUbicacion(e.target.value)}
-                      placeholder="Ej: Casa del prospecto"
+                    <AppointmentLocationPicker
+                      value={{
+                        ubicacion: formUbicacion,
+                        ubicacion_lat: formUbicacionLat,
+                        ubicacion_lng: formUbicacionLng,
+                      }}
+                      onChange={(next) => {
+                        setFormUbicacion(next.ubicacion)
+                        setFormUbicacionLat(next.ubicacion_lat)
+                        setFormUbicacionLng(next.ubicacion_lng)
+                      }}
                     />
                   </div>
                 ) : null}
@@ -1918,6 +1959,11 @@ const llamadasListFiltradas = useMemo(() => {
         onOpenChange={(open) => !open && setDetailProspecto(null)}
         onActionCompleted={refreshAll}
         showActions={false}
+      />
+      <ProspectDocumentsDialog
+        prospecto={documentsProspecto}
+        open={!!documentsProspecto}
+        onOpenChange={(open) => !open && setDocumentsProspecto(null)}
       />
     </>
   )
