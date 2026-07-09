@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
+import { formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
 
 import { Calendar as CalendarIcon, Phone, XCircle, Users, FileText, Clock, X } from "lucide-react"
 
@@ -38,6 +39,8 @@ type ProspectoMini = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   estado?: string | null
 }
@@ -122,6 +125,16 @@ const llamadaAmigoTimeInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const disabled = loadingAction !== null
   const hasVenta = Number(prospecto?.venta_monto_sin_iva ?? 0) > 0
+  const openCitaModal = () => {
+    const last = getLastAppointmentLocation(prospecto)
+    setCitaFecha(undefined)
+    setCitaHora("")
+    setCitaUbicacion(last.ubicacion)
+    setCitaUbicacionLat(last.ubicacion_lat)
+    setCitaUbicacionLng(last.ubicacion_lng)
+    setCitaObs("")
+    setOpenCita(true)
+  }
   const openProgramarLlamadaPara = (p: ProspectoMini) => {
   setTargetAmigo(p)
   setLlamadaFecha(undefined)
@@ -399,7 +412,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
               <Button
                 variant="outline"
                 className="justify-start gap-3 bg-transparent h-11"
-                onClick={() => setOpenCita(true)}
+                onClick={openCitaModal}
                 disabled={disabled}
               >
                 <CalendarIcon className="h-5 w-5" />
@@ -548,7 +561,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
     <div className="min-w-0">
       <div className="font-medium">{amigosData.recomendado_por.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {amigosData.recomendado_por.numero} • Encuesta: {amigosData.recomendado_por.numero_encuesta ?? "—"} • ID {amigosData.recomendado_por.id}
+        {formatProspectPhone(amigosData.recomendado_por)} • Encuesta: {amigosData.recomendado_por.numero_encuesta ?? "—"} • ID {amigosData.recomendado_por.id}
       </div>
     </div>
 
@@ -584,7 +597,7 @@ amigosData!.recomendados.map((p) => (
     <div className="min-w-0">
       <div className="font-medium">{p.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {p.numero} • Encuesta: {p.numero_encuesta ?? "—"} • {p.estado ?? "—"} • ID {p.id}
+        {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"} • {p.estado ?? "—"} • ID {p.id}
       </div>
     </div>
 

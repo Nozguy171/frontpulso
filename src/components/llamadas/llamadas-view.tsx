@@ -30,6 +30,7 @@ import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-bad
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
+import { canStartOrResumeFollowup, formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
 
 type LlamadaDTO = {
   id: number
@@ -43,12 +44,17 @@ prospect?: {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   created_at?: string | null
   seguimiento_pausado?: boolean | null
   seguimiento_fecha_base?: string | null
+  ultima_ubicacion_cita?: string | null
+  ultima_ubicacion_cita_lat?: number | null
+  ultima_ubicacion_cita_lng?: number | null
   estado?: string | null
   venta_monto_sin_iva?: number | null
 } | null}
@@ -117,6 +123,11 @@ function ymd(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
+}
+
+function currentHM() {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
 }
 function startOfToday() {
   const d = new Date()
@@ -675,6 +686,9 @@ const normalizedListRange = useMemo(
   const [formMontoConIva, setFormMontoConIva] = useState("")
   const [formIvaMonto, setFormIvaMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
+  const [formSeguimiento, setFormSeguimiento] = useState(false)
+  const [formSeguimientoDia, setFormSeguimientoDia] = useState("1")
+  const [formSeguimientoHora, setFormSeguimientoHora] = useState("")
 const montoConIvaNum = Number(formMontoConIva)
 const ivaPorcentajeNum = Number(formIvaMonto)
 
@@ -706,6 +720,9 @@ const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
     setFormMontoConIva("")
     setFormIvaMonto("")
     setFormMotivo("")
+    setFormSeguimiento(false)
+    setFormSeguimientoDia("1")
+    setFormSeguimientoHora("")
   }
 const refreshAll = async () => {
   const base = visibleMonth ?? new Date()
@@ -774,6 +791,8 @@ const onLlamadaAction = (
 
     if (action === "marcar_hecha") {
       setFormObs(llamada.observaciones || "")
+      setFormSeguimiento(canStartOrResumeFollowup(llamada.prospect))
+      setFormSeguimientoHora(currentHM())
       setActionOpen({ type: "marcar_hecha", llamada })
       return
     }
@@ -789,6 +808,10 @@ const onLlamadaAction = (
     }
 
     if (action === "agendar_cita") {
+      const last = getLastAppointmentLocation(llamada.prospect)
+      setFormUbicacion(last.ubicacion)
+      setFormUbicacionLat(last.ubicacion_lat)
+      setFormUbicacionLng(last.ubicacion_lng)
       setActionOpen({ type: "agendar_cita", llamada })
       return
     }
@@ -845,9 +868,21 @@ if (action === "ver_amigos") {
       }
 
       if (actionOpen.type === "marcar_hecha") {
+        if (formSeguimiento && (!formSeguimientoDia || !formSeguimientoHora)) {
+          alert("Día y hora son obligatorios para iniciar/reanudar seguimiento")
+          return
+        }
         await apiPost(`/calls/${actionOpen.llamada.id}/marcar-hecha`, {
           observaciones: formObs?.trim() || null,
         })
+        const prospectId = actionOpen.llamada.prospect?.id
+        if (formSeguimiento && prospectId) {
+          await apiPost(`/prospects/${prospectId}/acciones`, {
+            accion: "iniciar_seguimiento",
+            dia: formSeguimientoDia,
+            hora: formSeguimientoHora,
+          })
+        }
       }
 
       // ✅ Observaciones: POST y luego refresca /history
@@ -1093,7 +1128,7 @@ const llamadasListFiltradas = useMemo(() => {
 
   return base.filter((c) => {
     const nombre = c.prospect?.nombre ?? ""
-    const numero = c.prospect?.numero ?? ""
+    const numero = formatProspectPhone(c.prospect)
     const obs = c.observaciones ?? ""
     return `${nombre} ${numero} ${obs}`.toLowerCase().includes(q)
   })
@@ -1227,7 +1262,7 @@ const llamadasListFiltradas = useMemo(() => {
                 </h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary" className="truncate">
-                    {llamada.prospect?.numero ?? "—"}
+                    {formatProspectPhone(llamada.prospect)}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
@@ -1382,7 +1417,7 @@ const llamadasListFiltradas = useMemo(() => {
                                       {llamada.prospect?.nombre ?? "—"}
                                     </h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                                      <Badge variant="secondary">{llamada.prospect?.numero ?? "—"}</Badge>
+                                      <Badge variant="secondary">{formatProspectPhone(llamada.prospect)}</Badge>
                                       <Badge variant="outline" className="text-xs">
                                         Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
                                       </Badge>
@@ -1487,7 +1522,7 @@ const llamadasListFiltradas = useMemo(() => {
                       <div className="font-semibold text-lg truncate">{selectedLlamada.prospect?.nombre ?? "—"}</div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="secondary" className="truncate">
-                          {selectedLlamada.prospect?.numero ?? "—"}
+                          {formatProspectPhone(selectedLlamada.prospect)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Encuesta: {selectedLlamada.prospect?.numero_encuesta ?? "—"}
@@ -1646,7 +1681,7 @@ const llamadasListFiltradas = useMemo(() => {
     : "Agregar observaciones"}
 </DialogTitle>
             <DialogDescription>
-              {actionOpen?.llamada?.prospect?.nombre ?? "—"} • {actionOpen?.llamada?.prospect?.numero ?? "—"}
+              {actionOpen?.llamada?.prospect?.nombre ?? "—"} • {formatProspectPhone(actionOpen?.llamada?.prospect)}
             </DialogDescription>
           </DialogHeader>
 
@@ -1659,11 +1694,48 @@ const llamadasListFiltradas = useMemo(() => {
               </div>
             ) : null}
             {actionOpen?.type === "marcar_hecha" ? (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
-                <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Se llamó y se confirmó seguimiento..." />
-                <div className="text-[11px] text-muted-foreground mt-1">La llamada deja de aparecer como pendiente y se guarda en historial.</div>
-              </div>
+              <>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
+                  <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Se llamó y se confirmó seguimiento..." />
+                  <div className="text-[11px] text-muted-foreground mt-1">La llamada deja de aparecer como pendiente y se guarda en historial.</div>
+                </div>
+                {canStartOrResumeFollowup(actionOpen.llamada.prospect) ? (
+                  <div className="rounded-md border p-3">
+                    <label className="flex items-start gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={formSeguimiento}
+                        onChange={(event) => setFormSeguimiento(event.target.checked)}
+                        className="mt-1"
+                      />
+                      {actionOpen.llamada.prospect?.seguimiento_pausado ? "Reanudar seguimiento mensual" : "Iniciar seguimiento mensual"}
+                    </label>
+                    {formSeguimiento ? (
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Día del mes</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={formSeguimientoDia}
+                            onChange={(e) => setFormSeguimientoDia(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Hora</div>
+                          <Input
+                            type="time"
+                            value={formSeguimientoHora}
+                            onChange={(e) => setFormSeguimientoHora(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
             ) : null}
             {(actionOpen?.type === "reagendar" || actionOpen?.type === "agendar_cita") ? (
               <>
@@ -1888,7 +1960,7 @@ const llamadasListFiltradas = useMemo(() => {
                           >
                             <div className="font-medium">{amigosData.recomendado_por.nombre}</div>
                             <div className="text-muted-foreground">
-                              {amigosData.recomendado_por.numero} · {amigosData.recomendado_por.estado_label ?? amigosData.recomendado_por.estado ?? "—"}
+                              {formatProspectPhone(amigosData.recomendado_por)} · {amigosData.recomendado_por.estado_label ?? amigosData.recomendado_por.estado ?? "—"}
                             </div>
                           </button>
                         ) : (
@@ -1913,7 +1985,7 @@ const llamadasListFiltradas = useMemo(() => {
                               >
                                 <div className="font-medium">{r.nombre}</div>
                                 <div className="text-muted-foreground">
-                                  {r.numero} · {r.estado_label ?? r.estado ?? "—"}
+                                  {formatProspectPhone(r)} · {r.estado_label ?? r.estado ?? "—"}
                                 </div>
                               </button>
                             ))}

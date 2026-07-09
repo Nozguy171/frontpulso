@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { API_BASE_URL } from "@/lib/api"
+import { formatProspectPhone } from "@/lib/prospect"
 
 type Colaborador = {
   id: number
@@ -43,6 +44,8 @@ type RecomendadorItem = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
 }
 
@@ -71,6 +74,10 @@ function onlyDigitsMax10(v: string) {
   return (v ?? "").replace(/\D/g, "").slice(0, 10)
 }
 
+function onlyDigitsMax5(v: string) {
+  return (v ?? "").replace(/\D/g, "").slice(0, 5)
+}
+
 function onlyDigits(v: string) {
   return (v ?? "").replace(/\D/g, "")
 }
@@ -92,6 +99,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
   const [formData, setFormData] = useState({
     nombre: "",
     numero: "",
+    lada: "",
     numeroEncuesta: "",
     observaciones: "",
     recomendadoPorId: "",
@@ -358,6 +366,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         body: JSON.stringify({
           nombre: formData.nombre.trim(),
           numero: formData.numero,
+          lada: formData.lada || undefined,
           numero_encuesta:
             formData.formaObtencionTipo === "encuesta" ? formData.numeroEncuesta.trim() : undefined,
           observaciones: formData.observaciones?.trim() || undefined,
@@ -382,6 +391,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
       setFormData({
         nombre: "",
         numero: "",
+        lada: "",
         numeroEncuesta: "",
         observaciones: "",
         recomendadoPorId: "",
@@ -476,19 +486,36 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="numero">Número (10 dígitos) *</Label>
-              <Input
-                id="numero"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="new-password"
-                placeholder="Ej: 6861234567"
-                value={formData.numero}
-                onChange={(e) =>
-                  setFormData({ ...formData, numero: onlyDigitsMax10(e.target.value) })
-                }
-                required
-              />
+              <Label htmlFor="numero">Lada y número (10 dígitos) *</Label>
+              <div className="flex gap-2">
+                <div className="flex w-24 items-center rounded-md border bg-background">
+                  <span className="px-2 text-muted-foreground">+</span>
+                  <Input
+                    aria-label="Lada"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="new-password"
+                    placeholder="52"
+                    value={formData.lada}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lada: onlyDigitsMax5(e.target.value) })
+                    }
+                    className="border-0 px-0 shadow-none focus-visible:ring-0"
+                  />
+                </div>
+                <Input
+                  id="numero"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="new-password"
+                  placeholder="Ej: 6861234567"
+                  value={formData.numero}
+                  onChange={(e) =>
+                    setFormData({ ...formData, numero: onlyDigitsMax10(e.target.value) })
+                  }
+                  required
+                />
+              </div>
               <p className={`text-xs ${phoneOk ? "text-muted-foreground" : "text-destructive"}`}>
                 {phoneHint}
               </p>
@@ -569,7 +596,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                   <div className="min-w-0">
                     <div className="font-medium truncate">{recoSelected.nombre}</div>
                     <div className="text-xs text-muted-foreground font-mono truncate">
-                      {recoSelected.numero} • Encuesta: {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
+                      {formatProspectPhone(recoSelected)} • Encuesta: {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
                     </div>
                   </div>
 
@@ -609,7 +636,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                           >
                             <div className="font-medium">{p.nombre}</div>
                             <div className="font-mono text-xs text-muted-foreground">
-                              {p.numero} • Encuesta: {p.numero_encuesta ?? "—"} • ID {p.id}
+                              {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"} • ID {p.id}
                             </div>
                           </button>
                         ))

@@ -9,11 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatProspectPhone } from "@/lib/prospect"
 
 type ProspectDTO = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
@@ -26,6 +29,8 @@ type ProspectLite = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
@@ -229,6 +234,8 @@ export function HistorialView() {
           id: p.id,
           nombre: p.nombre,
           numero: p.numero,
+          lada: p.lada,
+          numero_formateado: p.numero_formateado,
           numero_encuesta: p.numero_encuesta,
           forma_obtencion_tipo: p.forma_obtencion_tipo,
 forma_obtencion: p.forma_obtencion,
@@ -487,7 +494,7 @@ forma_obtencion: p.forma_obtencion,
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground truncate">
-                          {p.numero} · Encuesta: {p.numero_encuesta ?? "—"}
+                          {formatProspectPhone(p)} · Encuesta: {p.numero_encuesta ?? "—"}
                         </div>
                         {p.observaciones ? (
                           <div className="text-xs text-muted-foreground line-clamp-2">{p.observaciones}</div>
@@ -592,7 +599,7 @@ forma_obtencion: p.forma_obtencion,
                           </div>
 
                           <div className="text-sm text-muted-foreground">
-                            {modalData.prospect.numero} · Encuesta: {modalData.prospect.numero_encuesta ?? "—"}
+                            {formatProspectPhone(modalData.prospect)} · Encuesta: {modalData.prospect.numero_encuesta ?? "—"}
                           </div>
 {modalData.prospect.forma_obtencion ? (
   <div className="text-sm text-muted-foreground">

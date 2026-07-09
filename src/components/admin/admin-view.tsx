@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatProspectPhone } from "@/lib/prospect"
 
 type Person = { id: number; nombre: string; username: string; email: string; telefono: string; role: string }
 type Team = {
@@ -28,7 +29,7 @@ type Sale = {
   capturada_por: Person; usuario_efectivo: Person; comision: number
 }
 type Prospect = {
-  id: number; tenant_id: number; equipo: string; nombre: string; numero: string; numero_encuesta?: string | null
+  id: number; tenant_id: number; equipo: string; nombre: string; numero: string; lada?: string | null; numero_formateado?: string | null; numero_encuesta?: string | null
   estado: string; forma_obtencion: string; asignado_a: Person; total_vendido: number; created_at: string; updated_at: string
 }
 type Audit = {
@@ -81,7 +82,7 @@ function SalesTable({ sales }: { sales: Sale[] }) {
 }
 
 function ProspectsTable({ prospects }: { prospects: Prospect[] }) {
-  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Prospecto", "Equipo", "Asignado a", "Teléfono", "Encuesta", "Estado", "Forma de obtención", "Total vendido", "Creado"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{prospects.map((prospect) => <tr key={prospect.id} className="border-t"><td className="p-3 font-medium">{prospect.nombre}</td><td className="p-3">{prospect.equipo}</td><td className="p-3">{prospect.asignado_a.nombre}</td><td className="p-3">{prospect.numero}</td><td className="p-3">{prospect.numero_encuesta || "—"}</td><td className="p-3"><Badge variant="outline" className="capitalize">{prospect.estado.replaceAll("_", " ")}</Badge></td><td className="p-3">{prospect.forma_obtencion}</td><td className="p-3">{money(prospect.total_vendido)}</td><td className="p-3">{date(prospect.created_at)}</td></tr>)}</tbody></table>{prospects.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin prospectos.</div> : null}</div>
+  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Prospecto", "Equipo", "Asignado a", "Teléfono", "Encuesta", "Estado", "Forma de obtención", "Total vendido", "Creado"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{prospects.map((prospect) => <tr key={prospect.id} className="border-t"><td className="p-3 font-medium">{prospect.nombre}</td><td className="p-3">{prospect.equipo}</td><td className="p-3">{prospect.asignado_a.nombre}</td><td className="p-3">{formatProspectPhone(prospect)}</td><td className="p-3">{prospect.numero_encuesta || "—"}</td><td className="p-3"><Badge variant="outline" className="capitalize">{prospect.estado.replaceAll("_", " ")}</Badge></td><td className="p-3">{prospect.forma_obtencion}</td><td className="p-3">{money(prospect.total_vendido)}</td><td className="p-3">{date(prospect.created_at)}</td></tr>)}</tbody></table>{prospects.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin prospectos.</div> : null}</div>
 }
 
 function AuditList({ rows }: { rows: Audit[] }) {
@@ -166,7 +167,7 @@ export function AdminView() {
   const visibleProspects = useMemo(() => {
     const query = prospectSearch.trim().toLowerCase()
     const rows = selectedTeam?.prospects || globalProspects
-    return query ? rows.filter((prospect) => `${prospect.nombre} ${prospect.numero} ${prospect.equipo} ${prospect.asignado_a.nombre}`.toLowerCase().includes(query)) : rows
+    return query ? rows.filter((prospect) => `${prospect.nombre} ${prospect.numero} ${formatProspectPhone(prospect)} ${prospect.equipo} ${prospect.asignado_a.nombre}`.toLowerCase().includes(query)) : rows
   }, [selectedTeam?.prospects, globalProspects, prospectSearch])
   const filteredSales = useMemo(() => (selectedTeam?.sales || []).filter((sale) => {
     if (saleRole !== "all" && sale.vendio.role !== saleRole) return false

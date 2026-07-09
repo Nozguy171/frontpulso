@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsPanel } from "@/components/prospectos/prospect-documents-panel"
+import { formatProspectPhone } from "@/lib/prospect"
 
 
 
@@ -47,6 +49,8 @@ type SeguimientoItem = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
@@ -89,6 +93,8 @@ type SeguimientoDetailResponse = {
     id: number
     nombre: string
     numero: string
+    lada?: string | null
+    numero_formateado?: string | null
     numero_encuesta?: string | null
     observaciones?: string | null
     estado: string
@@ -304,7 +310,7 @@ const showPausadosSection = statusFilter === "todos" || statusFilter === "pausad
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   // modales de acciones
-  const [modal, setModal] = useState<null | { type: "llamada" | "observacion"; prospect: SeguimientoItem }>(null)
+  const [modal, setModal] = useState<null | { type: "llamada" | "observacion" | "venta"; prospect: SeguimientoItem }>(null)
   const [saving, setSaving] = useState(false)
 const llamadaFechaInputRef = useRef<HTMLInputElement | null>(null)
 const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
@@ -312,7 +318,19 @@ const llamadaHoraInputRef = useRef<HTMLInputElement | null>(null)
   const [formFecha, setFormFecha] = useState("")
   const [formHora, setFormHora] = useState("")
   const [formObs, setFormObs] = useState("")
+  const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("")
+  const [formMontoConIva, setFormMontoConIva] = useState("")
+  const [formIvaPorcentaje, setFormIvaPorcentaje] = useState("")
 const selectedDetailProspect = detailData?.prospecto ?? null
+const montoConIvaNum = Number(formMontoConIva)
+const ivaPorcentajeNum = Number(formIvaPorcentaje)
+const montoSinIvaCalculado = useMemo(() => {
+  if (!formMontoConIva || !formIvaPorcentaje) return null
+  if (!Number.isFinite(montoConIvaNum) || !Number.isFinite(ivaPorcentajeNum) || ivaPorcentajeNum < 0) return null
+  const divisor = 1 + ivaPorcentajeNum / 100
+  if (!Number.isFinite(divisor) || divisor <= 0) return null
+  return montoConIvaNum / divisor
+}, [formMontoConIva, formIvaPorcentaje, montoConIvaNum, ivaPorcentajeNum])
 const orderedObsHist = useMemo(() => {
   return obsHist.slice().sort((a, b) => {
     const diff = +new Date(a.created_at) - +new Date(b.created_at)
@@ -327,6 +345,9 @@ const selectedHasVenta = selectedVentasCount > 0 || selected?.venta_monto_sin_iv
     setFormFecha("")
     setFormHora("")
     setFormObs("")
+    setFormTipoVenta("")
+    setFormMontoConIva("")
+    setFormIvaPorcentaje("")
   }
 
   const fetchSeguimiento = async (qOverride?: string) => {
@@ -455,6 +476,12 @@ const openProgramarLlamada = (p: SeguimientoItem) => {
     setModal({ type: "observacion", prospect: p })
   }
 
+  const openVenta = (p: SeguimientoItem) => {
+    resetForms()
+    setFormFecha(todayYMD)
+    setModal({ type: "venta", prospect: p })
+  }
+
 
 
   const submitModal = async () => {
@@ -490,9 +517,43 @@ if (modal.type === "llamada") {
         await apiPost(`/prospects/${p.id}/acciones`, { accion: "observaciones", observaciones: formObs.trim() })
       }
 
+      if (modal.type === "venta") {
+        if (!formTipoVenta) {
+          alert("Debes elegir si la venta fue a contado o a crédito")
+          return
+        }
+        if (!formFecha || !formHora) {
+          alert("Debes elegir la fecha y hora de la llamada postventa")
+          return
+        }
+
+        const montoConIva = Number(formMontoConIva)
+        const ivaPorcentaje = Number(formIvaPorcentaje)
+        const divisor = 1 + ivaPorcentaje / 100
+        const montoSinIva = montoConIva / divisor
+        const ivaMontoCalculado = montoConIva - montoSinIva
+
+        if (!Number.isFinite(montoConIva) || montoConIva <= 0 || !Number.isFinite(ivaPorcentaje) || ivaPorcentaje < 0 || !Number.isFinite(montoSinIva) || montoSinIva <= 0) {
+          alert("Ingresa monto e IVA válidos")
+          return
+        }
+
+        await apiPost(`/prospects/${p.id}/acciones`, {
+          accion: "vendido",
+          tipo_venta: formTipoVenta,
+          monto_con_iva: montoConIva,
+          iva_monto: Number(ivaMontoCalculado.toFixed(2)),
+          fecha: isoDayFromDateInput(formFecha),
+          hora: formHora,
+        })
+      }
+
       setModal(null)
       await fetchSeguimiento()
-      if (openProspectId === p.id) await fetchObsHistory(p.id)
+      if (openProspectId === p.id) {
+        await fetchObsHistory(p.id)
+        await fetchProspectDetail(p.id)
+      }
     } catch (e: any) {
       alert(e?.message || "No se pudo completar la acción")
     } finally {
@@ -571,7 +632,7 @@ const renderSeguimientoSection = (
 
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Badge variant="secondary" className="max-w-[220px] truncate">
-                              {p.numero}
+                              {formatProspectPhone(p)}
                             </Badge>
                             <Badge variant="outline" className="text-[11px] sm:text-xs">
                               Encuesta: {p.numero_encuesta ?? "—"}
@@ -857,7 +918,7 @@ const renderSeguimientoSection = (
 
 <div className="mt-1 flex flex-wrap items-center gap-2">
   <Badge variant="secondary" className="max-w-[320px] truncate">
-    {selectedDetailProspect?.numero ?? selected.numero}
+    {formatProspectPhone(selectedDetailProspect ?? selected)}
   </Badge>
   <Badge variant="outline" className="text-xs">
     Encuesta: {selectedDetailProspect?.numero_encuesta ?? selected.numero_encuesta ?? "—"}
@@ -1054,6 +1115,13 @@ disabled={saving || selected.seguimiento_activo}>
 </Button>
 <Button
   variant="outline"
+  onClick={() => openVenta(selected)}
+  disabled={saving}>
+  <DollarSign className="h-4 w-4 mr-2" />
+  Registrar venta
+</Button>
+<Button
+  variant="outline"
   onClick={() => pausarSeguimiento(selected)}
 disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado}>
   <XCircle className="h-4 w-4 mr-2" />
@@ -1086,10 +1154,10 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
     <div className="border-b p-5 sm:p-6">
       <DialogHeader>
         <DialogTitle className="text-lg">
-          {modal?.type === "llamada" ? "Programar llamada" : "Agregar observación"}
+          {modal?.type === "llamada" ? "Programar llamada" : modal?.type === "venta" ? "Registrar venta" : "Agregar observación"}
         </DialogTitle>
         <DialogDescription className="text-sm">
-          {modal?.prospect?.nombre ?? "—"} • {modal?.prospect?.numero ?? "—"}
+          {modal?.prospect?.nombre ?? "—"} • {formatProspectPhone(modal?.prospect)}
         </DialogDescription>
       </DialogHeader>
     </div>
@@ -1166,11 +1234,67 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
                   </div>
                 ) : null}
 
+                {modal?.type === "venta" ? (
+                  <div className="grid gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Tipo de venta *</div>
+                      <Select value={formTipoVenta} onValueChange={(value) => setFormTipoVenta(value as "contado" | "credito")}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona tipo de venta..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="contado">Contado</SelectItem>
+                          <SelectItem value="credito">Crédito</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Precio con IVA *</div>
+                        <Input
+                          inputMode="decimal"
+                          placeholder="Ej: 12000"
+                          value={formMontoConIva}
+                          onChange={(e) => setFormMontoConIva(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">IVA (%) *</div>
+                        <Input
+                          inputMode="decimal"
+                          placeholder="Ej: 16"
+                          value={formIvaPorcentaje}
+                          onChange={(e) => setFormIvaPorcentaje(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border bg-muted/30 p-3">
+                      <div className="text-xs text-muted-foreground mb-1">Precio sin IVA</div>
+                      <div className="text-lg font-semibold">
+                        {montoSinIvaCalculado == null ? "—" : montoSinIvaCalculado.toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Fecha de llamada postventa *</div>
+                        <Input type="date" min={todayYMD} value={formFecha} onChange={(e) => setFormFecha(e.target.value)} />
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Hora de llamada postventa *</div>
+                        <Input type="time" value={formHora} onChange={(e) => setFormHora(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="ghost" onClick={() => setModal(null)} disabled={saving}>
                     Cancelar
                   </Button>
-                  <Button onClick={submitModal} disabled={saving}>
+                  <Button onClick={submitModal} disabled={saving || (modal?.type === "venta" && !formTipoVenta)}>
                     {saving ? "Guardando..." : "Guardar"}
                   </Button>
                 </div>

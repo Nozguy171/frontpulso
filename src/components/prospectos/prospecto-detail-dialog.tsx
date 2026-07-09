@@ -28,11 +28,14 @@ import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectStatusBadge } from "./prospect-status-badge"
 import { ProspectDocumentsPanel } from "./prospect-documents-panel"
 import { getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
+import { formatProspectPhone } from "@/lib/prospect"
 
 type ProspectoBase = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   observaciones?: string | null
   estado: string
@@ -364,7 +367,7 @@ export function ProspectoDetailDialog({
                           <div className="text-xs text-muted-foreground">Número</div>
                           <div className="font-medium flex items-center gap-2 mt-1">
                             <Phone className="h-4 w-4" />
-                            {p.numero}
+                            {formatProspectPhone(p)}
                           </div>
                         </div>
 
@@ -478,7 +481,7 @@ export function ProspectoDetailDialog({
                               <div className="min-w-0">
                                 <div className="font-medium truncate">{detail.resumen.recomendado_por.nombre}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {detail.resumen.recomendado_por.numero} · Encuesta: {detail.resumen.recomendado_por.numero_encuesta ?? "—"}
+                                  {formatProspectPhone(detail.resumen.recomendado_por)} · Encuesta: {detail.resumen.recomendado_por.numero_encuesta ?? "—"}
                                 </div>
                               </div>
                               <Badge variant="secondary" className="w-fit">
@@ -510,7 +513,7 @@ export function ProspectoDetailDialog({
                                   <div className="min-w-0">
                                     <div className="font-medium truncate">{r.nombre}</div>
                                     <div className="text-xs text-muted-foreground">
-                                      {r.numero} · Encuesta: {r.numero_encuesta ?? "—"}
+                                      {formatProspectPhone(r)} · Encuesta: {r.numero_encuesta ?? "—"}
                                     </div>
                                   </div>
                                   <Badge variant="secondary" className="w-fit">

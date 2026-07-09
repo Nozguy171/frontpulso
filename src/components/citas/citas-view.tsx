@@ -31,6 +31,7 @@ import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-bad
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker, getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
+import { canStartOrResumeFollowup, formatProspectPhone } from "@/lib/prospect"
 
 type CitaDTO = {
   id: number
@@ -47,6 +48,8 @@ prospect?: {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   estado?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
@@ -167,6 +170,11 @@ function ymd(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
+}
+
+function currentHM() {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
 }
 
 function formatDiaLargo(d?: Date) {
@@ -546,6 +554,9 @@ const [formTipoVenta, setFormTipoVenta] = useState<"" | "contado" | "credito">("
 const [formMontoConIva, setFormMontoConIva] = useState("")
 const [formIvaMonto, setFormIvaMonto] = useState("")
   const [formMotivo, setFormMotivo] = useState("")
+  const [formSeguimiento, setFormSeguimiento] = useState(false)
+  const [formSeguimientoDia, setFormSeguimientoDia] = useState("1")
+  const [formSeguimientoHora, setFormSeguimientoHora] = useState("")
 const motivoRechazoLimpio = formMotivo.trim().replace(/\s+/g, " ")
 const motivoRechazoValido = motivoRechazoLimpio.length >= MIN_RECHAZO_MOTIVO_LEN
   const dateInputRef = useRef<HTMLInputElement | null>(null)
@@ -574,6 +585,9 @@ const resetActionForms = () => {
   setFormTipoVenta("")
   setFormMontoConIva("")
   setFormIvaMonto("")
+  setFormSeguimiento(false)
+  setFormSeguimientoDia("1")
+  setFormSeguimientoHora("")
 }
 
 const refreshAll = async () => {
@@ -602,9 +616,9 @@ const onCitaAction = (
 ) => {
     if (!cita?.prospect?.id) return
     const estadoCita = (cita.estado || "").toLowerCase()
-    if (estadoCita !== "programada" && !(estadoCita === "realizada" && ["vendido", "observaciones"].includes(action))) return
+    if (estadoCita !== "programada" && !(["realizada", "vendida"].includes(estadoCita) && ["vendido", "observaciones"].includes(action))) return
 
-    if (isSoldLikeAppointment(cita) && (action === "rechazado" || action === "vendido")) {
+    if (isSoldLikeAppointment(cita) && action === "rechazado") {
       alert("Este prospecto ya tiene una venta registrada.")
       return
     }
@@ -613,6 +627,8 @@ const onCitaAction = (
 
     if (action === "marcar_realizada") {
       setFormObs(cita.observaciones || "")
+      setFormSeguimiento(canStartOrResumeFollowup(cita.prospect))
+      setFormSeguimientoHora(currentHM())
       setActionOpen({ type: "marcar_realizada", cita })
       return
     }
@@ -660,9 +676,20 @@ if (action === "programar_llamada") {
     setSavingAction(true)
     try {
       if (actionOpen.type === "marcar_realizada") {
+        if (formSeguimiento && (!formSeguimientoDia || !formSeguimientoHora)) {
+          alert("Día y hora son obligatorios para iniciar/reanudar seguimiento")
+          return
+        }
         await apiPost(`/appointments/${actionOpen.cita.id}/marcar-realizada`, {
           observaciones: formObs?.trim() || null,
         })
+        if (formSeguimiento) {
+          await apiPost(`/prospects/${prospectId}/acciones`, {
+            accion: "iniciar_seguimiento",
+            dia: formSeguimientoDia,
+            hora: formSeguimientoHora,
+          })
+        }
       }
 
       if (actionOpen.type === "reagendar") {
@@ -878,7 +905,7 @@ const citasListFiltradas = useMemo(() => {
 
   return base.filter((c) => {
     const nombre = c.prospect?.nombre ?? ""
-    const numero = c.prospect?.numero ?? ""
+    const numero = formatProspectPhone(c.prospect)
     const ubic = c.ubicacion ?? ""
     const estado = c.estado_label ?? c.estado ?? ""
     return `${nombre} ${numero} ${ubic} ${estado}`.toLowerCase().includes(q)
@@ -961,7 +988,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary" className="truncate">
-                    {cita.prospect?.numero ?? "—"}
+                    {formatProspectPhone(cita.prospect)}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
@@ -974,11 +1001,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                 </div>
               </div>
 
-              {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? (
+              {["programada", "realizada", "vendida"].includes((cita.estado || "").toLowerCase()) ? (
                 <CitaActionsMenu
                   allowDoneAction={false}
                   allowScheduleActions={cita.estado === "programada"}
-                  allowSaleAction={!isSoldLikeAppointment(cita)}
+                  allowSaleAction
                   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
                   onAction={(a) => onCitaAction(a, cita)}
                 />
@@ -1097,7 +1124,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                   <div className="min-w-0">
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                                      <Badge variant="secondary">{cita.prospect?.numero ?? "—"}</Badge>
+                                      <Badge variant="secondary">{formatProspectPhone(cita.prospect)}</Badge>
                                       <Badge variant="outline" className="text-xs">
                                         Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
                                       </Badge>
@@ -1111,10 +1138,10 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     </div>
                                   </div>
 
-                                  {["programada", "realizada"].includes((cita.estado || "").toLowerCase()) ? <CitaActionsMenu
+                                  {["programada", "realizada", "vendida"].includes((cita.estado || "").toLowerCase()) ? <CitaActionsMenu
   allowDoneAction={false}
   allowScheduleActions={cita.estado === "programada"}
-  allowSaleAction={!isSoldLikeAppointment(cita)}
+  allowSaleAction
   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
   onAction={(a) => onCitaAction(a, cita)}
 /> : null}
@@ -1201,7 +1228,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                       <div className="font-semibold text-lg truncate">{selectedCita.prospect?.nombre ?? "—"}</div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="secondary" className="truncate">
-                          {selectedCita.prospect?.numero ?? "—"}
+                          {formatProspectPhone(selectedCita.prospect)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Encuesta: {selectedCita.prospect?.numero_encuesta ?? "—"}
@@ -1379,17 +1406,54 @@ const statusStyles = getCitaStatusVisual(cita.estado)
     : "Agregar observaciones"}
 </DialogTitle>
             <DialogDescription>
-              {actionOpen?.cita?.prospect?.nombre ?? "—"} • {actionOpen?.cita?.prospect?.numero ?? "—"}
+              {actionOpen?.cita?.prospect?.nombre ?? "—"} • {formatProspectPhone(actionOpen?.cita?.prospect)}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3">
 {actionOpen?.type === "marcar_realizada" ? (
-  <div>
-    <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
-    <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Visita realizada / cita atendida..." />
-    <div className="text-[11px] text-muted-foreground mt-1">La cita deja de aparecer como pendiente y se guarda en historial.</div>
-  </div>
+  <>
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">Observaciones (opcional)</div>
+      <Input value={formObs} onChange={(e) => setFormObs(e.target.value)} placeholder="Ej: Visita realizada / cita atendida..." />
+      <div className="text-[11px] text-muted-foreground mt-1">La cita deja de aparecer como pendiente y se guarda en historial.</div>
+    </div>
+    {canStartOrResumeFollowup(actionOpen.cita.prospect) ? (
+      <div className="rounded-md border p-3">
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={formSeguimiento}
+            onChange={(event) => setFormSeguimiento(event.target.checked)}
+            className="mt-1"
+          />
+          {actionOpen.cita.prospect?.seguimiento_pausado ? "Reanudar seguimiento mensual" : "Iniciar seguimiento mensual"}
+        </label>
+        {formSeguimiento ? (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Día del mes</div>
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={formSeguimientoDia}
+                onChange={(e) => setFormSeguimientoDia(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Hora</div>
+              <Input
+                type="time"
+                value={formSeguimientoHora}
+                onChange={(e) => setFormSeguimientoHora(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    ) : null}
+  </>
 ) : null}
 {actionOpen?.type === "reagendar" || actionOpen?.type === "programar_llamada" ? (
   <>

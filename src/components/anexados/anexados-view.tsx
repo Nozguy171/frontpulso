@@ -20,11 +20,14 @@ import {
 
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { formatProspectPhone } from "@/lib/prospect"
 
 type ProspectDTO = {
   id: number
   nombre: string
   numero: string
+  lada?: string | null
+  numero_formateado?: string | null
   numero_encuesta?: string | null
   forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
@@ -286,7 +289,7 @@ export function AnexadosView() {
                           <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{p.nombre}</h3>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             <Badge variant="secondary" className="truncate">
-                              {p.numero}
+                              {formatProspectPhone(p)}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               Encuesta: {p.numero_encuesta ?? "—"}
@@ -352,7 +355,7 @@ export function AnexadosView() {
                       <div className="font-semibold text-lg truncate">{selected.nombre}</div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="secondary" className="truncate">
-                          {selected.numero}
+                          {formatProspectPhone(selected)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Encuesta: {selected.numero_encuesta ?? "—"}
@@ -403,7 +406,7 @@ export function AnexadosView() {
           <DialogHeader>
             <DialogTitle>Agendar llamada</DialogTitle>
             <DialogDescription>
-              {selectedAgendar ? `${selectedAgendar.nombre} • ${selectedAgendar.numero}` : "Selecciona fecha y hora"}
+              {selectedAgendar ? `${selectedAgendar.nombre} • ${formatProspectPhone(selectedAgendar)}` : "Selecciona fecha y hora"}
             </DialogDescription>
           </DialogHeader>
 
