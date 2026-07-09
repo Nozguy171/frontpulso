@@ -1244,7 +1244,7 @@ const llamadasListFiltradas = useMemo(() => {
   return (
     <Card
       key={llamada.id}
-      className={`hover:border-primary/50 transition-colors cursor-pointer ${priorityStyles.card}`}
+      className={`min-w-0 hover:border-primary/50 transition-colors cursor-pointer ${priorityStyles.card}`}
       role="button"
       tabIndex={0}
       onClick={() => openLlamada(llamada.id)}
@@ -1252,11 +1252,11 @@ const llamadasListFiltradas = useMemo(() => {
         if (e.key === "Enter" || e.key === " ") openLlamada(llamada.id)
       }}
     >
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="min-w-0 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                   {llamada.prospect?.nombre ?? "—"}
                 </h3>
@@ -1288,28 +1288,28 @@ const llamadasListFiltradas = useMemo(() => {
 />            ) : null}
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${priorityStyles.dot}`} />
-                <CalendarIcon className="h-4 w-4" />
-                <span className="truncate">
+            <div className="flex min-w-0 flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 text-sm text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${priorityStyles.dot}`} />
+                <CalendarIcon className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">
                   {formatFechaCorta(llamada.fecha_hora)} • {formatHora(llamada.fecha_hora)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 min-w-0">
-                <Phone className="h-4 w-4" />
-                <span className="truncate">Llamada programada</span>
+              <div className="flex min-w-0 items-center gap-2 sm:flex-1">
+                <Phone className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">Llamada programada</span>
               </div>
             </div>
             {llamada.prospect?.forma_obtencion ? (
-              <div className="text-xs text-muted-foreground">
+              <div className="break-words text-xs text-muted-foreground">
                 <span className="font-medium">Forma de obtención:</span>{" "}
                 {llamada.prospect.forma_obtencion}
               </div>
             ) : null}
             {llamada.estado_detalle ? (
-              <div className="text-xs text-muted-foreground">
+              <div className="break-words text-xs text-muted-foreground">
                 {llamada.estado_detalle}
               </div>
             ) : null}
@@ -1331,8 +1331,8 @@ const llamadasListFiltradas = useMemo(() => {
 
           {/* CALENDARIO */}
           <TabsContent value="calendar">
-            <div className="grid gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
-              <Card className="w-full">
+            <div className="grid min-w-0 gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
+              <Card className="w-full min-w-0">
                 <CardHeader className="py-4">
                   <CardTitle className="text-lg flex items-center justify-between">
                     <span>Seleccionar fecha</span>
@@ -1374,7 +1374,7 @@ const llamadasListFiltradas = useMemo(() => {
                 </CardContent>
               </Card>
 
-              <div className="space-y-4 min-h-[520px]">
+              <div className="min-h-[520px] min-w-0 space-y-4">
                 <Card>
                   <CardHeader className="py-4">
                     <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -1400,7 +1400,7 @@ const llamadasListFiltradas = useMemo(() => {
   .map((llamada) => (
 <Card
   key={llamada.id}
-  className={`hover:border-primary/50 transition-colors cursor-pointer ${getCallStatusVisual(llamada.estado).card}`}
+  className={`min-w-0 hover:border-primary/50 transition-colors cursor-pointer ${getCallStatusVisual(llamada.estado).card}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => openLlamada(llamada.id)}
@@ -1408,11 +1408,11 @@ const llamadasListFiltradas = useMemo(() => {
                             if (e.key === "Enter" || e.key === " ") openLlamada(llamada.id)
                           }}
                         >
-                          <CardContent className="p-4 sm:p-6">
+                          <CardContent className="min-w-0 p-4 sm:p-6">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
+                                <div className="flex min-w-0 items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                                       {llamada.prospect?.nombre ?? "—"}
                                     </h3>
@@ -1441,25 +1441,25 @@ const llamadasListFiltradas = useMemo(() => {
 />                                ) : null}
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4" />
+                                <div className="flex min-w-0 flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 text-sm text-muted-foreground">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <Clock className="h-4 w-4 shrink-0" />
                                     <span className="font-semibold text-foreground">{formatHora(llamada.fecha_hora)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4" />
-                                    <span className="truncate">Llamada programada</span>
+                                  <div className="flex min-w-0 items-center gap-2 sm:flex-1">
+                                    <Phone className="h-4 w-4 shrink-0" />
+                                    <span className="min-w-0 truncate">Llamada programada</span>
                                   </div>
                                 </div>
 
                                 {llamada.observaciones ? (
-                                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <StickyNote className="h-4 w-4 mt-0.5" />
-                                    <span className="line-clamp-2">{llamada.observaciones}</span>
+                                  <div className="flex min-w-0 items-start gap-2 text-sm text-muted-foreground">
+                                    <StickyNote className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <span className="line-clamp-2 min-w-0 break-words">{llamada.observaciones}</span>
                                   </div>
                                 ) : null}
                                 {llamada.prospect?.forma_obtencion ? (
-  <div className="text-xs text-muted-foreground">
+  <div className="break-words text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span>{" "}
     {llamada.prospect.forma_obtencion}
   </div>

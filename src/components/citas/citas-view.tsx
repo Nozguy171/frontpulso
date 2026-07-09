@@ -969,7 +969,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
   return (
 <Card
   key={cita.id}
-  className={`hover:border-primary/50 transition-colors cursor-pointer ${statusStyles.card}`}
+  className={`min-w-0 hover:border-primary/50 transition-colors cursor-pointer ${statusStyles.card}`}
       role="button"
       tabIndex={0}
       onClick={() => openCita(cita.id)}
@@ -977,11 +977,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
         if (e.key === "Enter" || e.key === " ") openCita(cita.id)
       }}
     >
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="min-w-0 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                   {cita.prospect?.nombre ?? "—"}
                 </h3>
@@ -1012,28 +1012,28 @@ const statusStyles = getCitaStatusVisual(cita.estado)
               ) : null}
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                <span className="truncate">
+            <div className="flex min-w-0 flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 text-sm text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <CalendarIcon className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">
                   {formatFechaCorta(cita.fecha_hora)} • {formatHora(cita.fecha_hora)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 min-w-0">
-                <MapPin className="h-4 w-4" />
-                <span className="truncate">{cita.ubicacion}</span>
+              <div className="flex min-w-0 items-start gap-2 sm:flex-1">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="line-clamp-2 min-w-0 flex-1 break-words leading-snug">{cita.ubicacion}</span>
               </div>
             </div>
 
 {cita.prospect?.forma_obtencion ? (
-  <div className="text-xs text-muted-foreground">
+  <div className="break-words text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span>{" "}
     {cita.prospect.forma_obtencion}
   </div>
 ) : null}
             {cita.estado_detalle ? (
-              <div className="text-xs text-muted-foreground">
+              <div className="break-words text-xs text-muted-foreground">
                 {cita.estado_detalle}
               </div>
             ) : null}
@@ -1054,8 +1054,8 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 
           {/* CALENDARIO */}
           <TabsContent value="calendar">
-            <div className="grid gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
-              <Card className="w-full">
+            <div className="grid min-w-0 gap-4 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))]">
+              <Card className="w-full min-w-0">
                 <CardHeader className="py-4">
                   <CardTitle className="text-lg flex items-center justify-between">
                     <span>Seleccionar fecha</span>
@@ -1083,7 +1083,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                 </CardContent>
               </Card>
 
-              <div className="space-y-4 min-h-[520px]">
+              <div className="min-h-[520px] min-w-0 space-y-4">
                 <Card>
                   <CardHeader className="py-4">
                     <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -1109,7 +1109,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
   .map((cita) => (
 <Card
   key={cita.id}
-  className={`hover:border-primary/50 transition-colors cursor-pointer ${getCitaStatusVisual(cita.estado).card}`}
+  className={`min-w-0 hover:border-primary/50 transition-colors cursor-pointer ${getCitaStatusVisual(cita.estado).card}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => openCita(cita.id)}
@@ -1117,11 +1117,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                             if (e.key === "Enter" || e.key === " ") openCita(cita.id)
                           }}
                         >
-                          <CardContent className="p-4 sm:p-6">
+                          <CardContent className="min-w-0 p-4 sm:p-6">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
+                                <div className="flex min-w-0 items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
                                       <Badge variant="secondary">{formatProspectPhone(cita.prospect)}</Badge>
@@ -1147,31 +1147,31 @@ const statusStyles = getCitaStatusVisual(cita.estado)
 /> : null}
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4" />
+                                <div className="flex min-w-0 flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 text-sm text-muted-foreground">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <Clock className="h-4 w-4 shrink-0" />
                                     <span className="font-semibold text-foreground">{formatHora(cita.fecha_hora)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <MapPin className="h-4 w-4" />
-                                    <span className="truncate">{cita.ubicacion}</span>
+                                  <div className="flex min-w-0 items-start gap-2 sm:flex-1">
+                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span className="line-clamp-2 min-w-0 flex-1 break-words leading-snug">{cita.ubicacion}</span>
                                   </div>
                                 </div>
 
                                 {cita.observaciones ? (
-                                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <StickyNote className="h-4 w-4 mt-0.5" />
-                                    <span className="line-clamp-2">{cita.observaciones}</span>
+                                  <div className="flex min-w-0 items-start gap-2 text-sm text-muted-foreground">
+                                    <StickyNote className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <span className="line-clamp-2 min-w-0 break-words">{cita.observaciones}</span>
                                   </div>
                                 ) : null}
                                 {cita.prospect?.forma_obtencion ? (
-  <div className="text-xs text-muted-foreground">
+  <div className="break-words text-xs text-muted-foreground">
     <span className="font-medium">Forma de obtención:</span>{" "}
     {cita.prospect.forma_obtencion}
   </div>
 ) : null}
                                 {cita.estado_detalle ? (
-  <div className="text-xs text-muted-foreground">
+  <div className="break-words text-xs text-muted-foreground">
     {cita.estado_detalle}
   </div>
 ) : null}
@@ -1277,9 +1277,9 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-2 text-sm sm:col-span-2">
+                      <div className="flex min-w-0 items-start gap-2 text-sm sm:col-span-2">
                         <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-muted-foreground text-xs">Ubicación</div>
                           <div className="break-words font-medium">{selectedCita.ubicacion}</div>
                           <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
