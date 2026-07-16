@@ -579,7 +579,7 @@ forma_obtencion: p.forma_obtencion,
       </div>
 
       <Dialog open={!!openProspectId} onOpenChange={(v) => !v && setOpenProspectId(null)}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>
@@ -672,7 +672,7 @@ forma_obtencion: p.forma_obtencion,
       </Dialog>
 
       <Dialog open={!!openUserId} onOpenChange={(v) => !v && setOpenUserId(null)}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>

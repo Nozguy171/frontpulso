@@ -182,7 +182,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
           <div className="shrink-0 border-b p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Buscador general de prospectos</DialogTitle>
@@ -219,7 +219,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
             </div>
           </div>
 
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
             {!data || data.prospectos.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">

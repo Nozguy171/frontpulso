@@ -280,7 +280,7 @@ export function ProspectDocumentsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[95vw] max-w-none overflow-y-auto sm:max-w-[980px]">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[95vw] max-w-none overflow-y-auto sm:max-w-[980px]">
         <DialogHeader>
           <DialogTitle>Subir documentos</DialogTitle>
           <DialogDescription>

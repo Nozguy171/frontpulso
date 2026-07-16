@@ -461,8 +461,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[560px]">
-        <DialogHeader className="border-b px-4 py-4 sm:px-6">
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[560px]">
+        <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6">
           <DialogTitle>Agregar Nuevo Prospecto</DialogTitle>
           <DialogDescription>
             {collaborator
@@ -476,7 +476,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         </DialogHeader>
 
         <form onSubmit={handleSubmit} autoComplete="off" className="flex min-h-0 flex-1 flex-col">
-          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="scrollbar-thin grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
             {showAssignSelect && (
               <div className="grid gap-2">
                 <Label>Asignar a *</Label>
@@ -710,7 +710,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                     />
 
                     <div className="rounded-md border">
-                      <div className="max-h-52 overflow-auto">
+                      <div className="scrollbar-thin max-h-52 overflow-auto overscroll-contain">
                         {recoLoading ? (
                           <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
                         ) : recoQuery.trim() && recoResults.length === 0 ? (

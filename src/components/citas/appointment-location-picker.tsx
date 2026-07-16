@@ -193,7 +193,7 @@ export function AppointmentLocationPicker({ value, onChange, inputId = "appointm
       </div>
 
       {results.length > 0 ? (
-        <div className="max-h-36 overflow-y-auto rounded-md border bg-background text-sm">
+        <div className="scrollbar-thin max-h-36 overflow-y-auto overscroll-contain rounded-md border bg-background text-sm">
           {results.map((result, index) => (
             <button
               key={result.place_id || index}

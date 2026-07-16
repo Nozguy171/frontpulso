@@ -1154,7 +1154,7 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
 <Dialog open={!!modal} onOpenChange={(v) => !v && setModal(null)}>
   <DialogContent
     onOpenAutoFocus={(e) => e.preventDefault()}
-    className="flex max-h-[calc(100dvh-1rem)] w-[min(620px,96vw)] flex-col overflow-hidden rounded-xl p-0"
+    className="flex h-[calc(100dvh-1rem)] max-h-[44rem] w-[min(620px,96vw)] flex-col overflow-hidden rounded-xl p-0"
   >
     <div className="shrink-0 border-b p-5 sm:p-6">
       <DialogHeader>
@@ -1168,7 +1168,7 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
       </DialogHeader>
     </div>
 
-    <div className="scrollbar-thin grid min-h-0 flex-1 gap-4 overflow-y-auto p-5 sm:p-6">
+    <div className="scrollbar-thin grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain p-5 sm:p-6">
                 {modal?.type === "llamada" ? (
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1326,13 +1326,6 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
   showActions={false}
 />
 
-      {/* ayuda extra para scroll de ScrollArea */}
-      <style jsx global>{`
-        [data-radix-scroll-area-viewport] {
-          overscroll-behavior: contain;
-          -webkit-overflow-scrolling: touch;
-        }
-      `}</style>
     </>
   )
 }

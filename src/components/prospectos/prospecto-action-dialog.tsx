@@ -369,7 +369,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="
-            flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-none flex-col
+            flex h-[calc(100dvh-1rem)] max-h-[36rem] w-[95vw] max-w-none flex-col
             overflow-hidden p-0 sm:max-w-[420px]
           "
         >

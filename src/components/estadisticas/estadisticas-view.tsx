@@ -825,12 +825,12 @@ export function EstadisticasView() {
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[42rem] flex-col overflow-hidden sm:max-w-2xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{detailTitle}</DialogTitle>
           </DialogHeader>
 
-          <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
             {detailLoading ? (
               <div className="rounded-lg border p-4 text-sm text-muted-foreground">Cargando detalle...</div>
             ) : detailError ? (
