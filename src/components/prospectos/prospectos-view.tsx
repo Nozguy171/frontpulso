@@ -12,6 +12,7 @@ import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectosGlobalSearch } from "./prospectos-global-search"
 import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
 import { ProspectStatusBadge } from "./prospect-status-badge"
+import { ProspectTreatmentBadge } from "./prospect-treatment-badge"
 import { formatProspectPhone } from "@/lib/prospect"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8085/api"
 
@@ -403,6 +404,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
           <Badge variant="secondary" className="font-mono text-xs">
             Encuesta: {prospecto.numero_encuesta ?? "—"}
           </Badge>
+          <ProspectTreatmentBadge prospect={prospecto} />
           <ProspectStatusBadge prospect={prospecto} />
         </div>
       </div>

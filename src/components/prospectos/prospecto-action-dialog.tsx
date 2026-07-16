@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
 import { formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 import { Calendar as CalendarIcon, Phone, XCircle, Users, FileText, Clock, X } from "lucide-react"
 
@@ -42,6 +43,7 @@ type ProspectoMini = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   estado?: string | null
 }
 
@@ -381,6 +383,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
                   <DialogDescription className="text-xs sm:text-sm">
                     Acciones rápidas del prospecto
                   </DialogDescription>
+                  <ProspectTreatmentBadge prospect={prospecto} />
                 </DialogHeader>
               </div>
 
@@ -484,6 +487,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       <DialogDescription>
         Escribe por qué el prospecto dijo que no. Este campo es obligatorio.
       </DialogDescription>
+      <ProspectTreatmentBadge prospect={prospecto} />
     </DialogHeader>
 
     <form onSubmit={handleSubmitRechazo} autoComplete="off" className="space-y-4 pt-2">
@@ -547,6 +551,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
             <DialogDescription>
               Quién lo recomendó y a quiénes recomendó este prospecto.
             </DialogDescription>
+            <ProspectTreatmentBadge prospect={prospecto} />
           </DialogHeader>
 
           <div className="space-y-4">
@@ -563,6 +568,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       <div className="text-xs text-muted-foreground font-mono">
         {formatProspectPhone(amigosData.recomendado_por)} • Encuesta: {amigosData.recomendado_por.numero_encuesta ?? "—"} • ID {amigosData.recomendado_por.id}
       </div>
+      <ProspectTreatmentBadge prospect={amigosData.recomendado_por} className="mt-2" />
     </div>
 
     <Button
@@ -599,6 +605,7 @@ amigosData!.recomendados.map((p) => (
       <div className="text-xs text-muted-foreground font-mono">
         {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"} • {p.estado ?? "—"} • ID {p.id}
       </div>
+      <ProspectTreatmentBadge prospect={p} className="mt-2" />
     </div>
 
     <Button
@@ -637,6 +644,7 @@ amigosData!.recomendados.map((p) => (
       <DialogDescription>
         Esta llamada se agendará para el prospecto relacionado en Amigos.
       </DialogDescription>
+      <ProspectTreatmentBadge prospect={targetAmigo} />
     </DialogHeader>
 
     <form onSubmit={handleSubmitLlamadaAmigo} autoComplete="off" className="space-y-4 pt-2">
@@ -723,6 +731,7 @@ amigosData!.recomendados.map((p) => (
             <DialogTitle className="text-lg sm:text-xl">
               Agendar cita con {prospecto.nombre}
             </DialogTitle>
+            <ProspectTreatmentBadge prospect={prospecto} />
           </DialogHeader>
 
           <form onSubmit={handleSubmitCita} autoComplete="off" className="space-y-4 pt-2">
@@ -823,6 +832,7 @@ amigosData!.recomendados.map((p) => (
             <DialogTitle className="text-lg sm:text-xl">
               Programar llamada con {prospecto.nombre}
             </DialogTitle>
+            <ProspectTreatmentBadge prospect={prospecto} />
           </DialogHeader>
 
           <form onSubmit={handleSubmitLlamada} autoComplete="off" className="space-y-4 pt-2">
@@ -904,6 +914,7 @@ amigosData!.recomendados.map((p) => (
         <DialogContent className="w-[95vw] max-w-none sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Observaciones adicionales</DialogTitle>
+            <ProspectTreatmentBadge prospect={prospecto} />
           </DialogHeader>
 
           <form onSubmit={handleSubmitObs} autoComplete="off" className="space-y-4 pt-2">

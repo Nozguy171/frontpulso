@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatProspectPhone } from "@/lib/prospect"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type Person = { id: number; nombre: string; username: string; email: string; telefono: string; role: string }
 type Team = {
@@ -24,12 +25,13 @@ type Member = Person & {
   porcentaje_equipo: number; conversion: number; ticket_promedio: number; ultima_actividad?: string | null
 }
 type Sale = {
-  id: number; fecha: string; vendio: Person; prospecto: { id: number; nombre: string }; tipo: string
+  id: number; fecha: string; vendio: Person; prospecto: { id: number; nombre: string; trato_prospecto?: "enojado" | "feliz" | "neutral" | null }; tipo: string
   monto_con_iva: number; iva: number; monto_sin_iva: number; origen: string
   capturada_por: Person; usuario_efectivo: Person; comision: number
 }
 type Prospect = {
   id: number; tenant_id: number; equipo: string; nombre: string; numero: string; lada?: string | null; numero_formateado?: string | null; numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   estado: string; forma_obtencion: string; asignado_a: Person; total_vendido: number; created_at: string; updated_at: string
 }
 type Audit = {
@@ -78,11 +80,11 @@ function FilterSelect({ value, onChange, options }: { value: string; onChange: (
 }
 
 function SalesTable({ sales }: { sales: Sale[] }) {
-  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1100px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Fecha", "Vendió", "Rol", "Prospecto", "Tipo", "Con IVA", "IVA", "Sin IVA", "Origen", "Capturada por", "Usuario efectivo", "Comisión"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{sales.map((sale) => <tr key={sale.id} className="border-t"><td className="p-3">{date(sale.fecha)}</td><td className="p-3 font-medium">{sale.vendio.nombre}</td><td className="p-3">{roleLabel(sale.vendio.role)}</td><td className="p-3">{sale.prospecto.nombre}</td><td className="p-3 capitalize">{sale.tipo}</td><td className="p-3">{money(sale.monto_con_iva)}</td><td className="p-3">{money(sale.iva)}</td><td className="p-3 font-medium">{money(sale.monto_sin_iva)}</td><td className="p-3 capitalize">{sale.origen}</td><td className="p-3">{sale.capturada_por.nombre}</td><td className="p-3">{sale.usuario_efectivo.nombre}</td><td className="p-3">{money(sale.comision)}</td></tr>)}</tbody></table>{sales.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin ventas en el periodo.</div> : null}</div>
+  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1100px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Fecha", "Vendió", "Rol", "Prospecto", "Tipo", "Con IVA", "IVA", "Sin IVA", "Origen", "Capturada por", "Usuario efectivo", "Comisión"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{sales.map((sale) => <tr key={sale.id} className="border-t"><td className="p-3">{date(sale.fecha)}</td><td className="p-3 font-medium">{sale.vendio.nombre}</td><td className="p-3">{roleLabel(sale.vendio.role)}</td><td className="p-3"><div className="space-y-1"><div>{sale.prospecto.nombre}</div><ProspectTreatmentBadge prospect={sale.prospecto}/></div></td><td className="p-3 capitalize">{sale.tipo}</td><td className="p-3">{money(sale.monto_con_iva)}</td><td className="p-3">{money(sale.iva)}</td><td className="p-3 font-medium">{money(sale.monto_sin_iva)}</td><td className="p-3 capitalize">{sale.origen}</td><td className="p-3">{sale.capturada_por.nombre}</td><td className="p-3">{sale.usuario_efectivo.nombre}</td><td className="p-3">{money(sale.comision)}</td></tr>)}</tbody></table>{sales.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin ventas en el periodo.</div> : null}</div>
 }
 
 function ProspectsTable({ prospects }: { prospects: Prospect[] }) {
-  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Prospecto", "Equipo", "Asignado a", "Teléfono", "Encuesta", "Estado", "Forma de obtención", "Total vendido", "Creado"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{prospects.map((prospect) => <tr key={prospect.id} className="border-t"><td className="p-3 font-medium">{prospect.nombre}</td><td className="p-3">{prospect.equipo}</td><td className="p-3">{prospect.asignado_a.nombre}</td><td className="p-3">{formatProspectPhone(prospect)}</td><td className="p-3">{prospect.numero_encuesta || "—"}</td><td className="p-3"><Badge variant="outline" className="capitalize">{prospect.estado.replaceAll("_", " ")}</Badge></td><td className="p-3">{prospect.forma_obtencion}</td><td className="p-3">{money(prospect.total_vendido)}</td><td className="p-3">{date(prospect.created_at)}</td></tr>)}</tbody></table>{prospects.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin prospectos.</div> : null}</div>
+  return <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[1150px] text-sm"><thead className="bg-muted/50 text-left"><tr>{["Prospecto", "Equipo", "Asignado a", "Teléfono", "Encuesta", "Trato", "Estado", "Forma de obtención", "Total vendido", "Creado"].map((heading) => <th key={heading} className="p-3 font-medium">{heading}</th>)}</tr></thead><tbody>{prospects.map((prospect) => <tr key={prospect.id} className="border-t"><td className="p-3 font-medium">{prospect.nombre}</td><td className="p-3">{prospect.equipo}</td><td className="p-3">{prospect.asignado_a.nombre}</td><td className="p-3">{formatProspectPhone(prospect)}</td><td className="p-3">{prospect.numero_encuesta || "—"}</td><td className="p-3"><ProspectTreatmentBadge prospect={prospect}/></td><td className="p-3"><Badge variant="outline" className="capitalize">{prospect.estado.replaceAll("_", " ")}</Badge></td><td className="p-3">{prospect.forma_obtencion}</td><td className="p-3">{money(prospect.total_vendido)}</td><td className="p-3">{date(prospect.created_at)}</td></tr>)}</tbody></table>{prospects.length === 0 ? <div className="p-8 text-center text-muted-foreground">Sin prospectos.</div> : null}</div>
 }
 
 function AuditList({ rows }: { rows: Audit[] }) {

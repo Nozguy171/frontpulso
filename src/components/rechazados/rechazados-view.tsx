@@ -20,6 +20,7 @@ import {
 
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { formatProspectPhone } from "@/lib/prospect"
 
 type ProspectDTO = {
@@ -29,6 +30,7 @@ type ProspectDTO = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
@@ -301,6 +303,7 @@ export function RechazadosView() {
                               {p.estado}
                             </Badge>
                             <ProspectStatusBadge prospect={p} />
+                            <ProspectTreatmentBadge prospect={p} />
 
                             {/* ✅ fecha del rechazo (si existe), si no created_at */}
                             <Badge variant="outline" className="text-xs">
@@ -387,6 +390,7 @@ export function RechazadosView() {
                         <Badge variant="outline" className="text-xs">
                           Rechazo: {formatFechaCorta(selected.rechazo_at || selected.created_at)}
                         </Badge>
+                        <ProspectTreatmentBadge prospect={selected} />
                         {typeof selected.rechazo_count === "number" && selected.rechazo_count > 1 ? (
                           <Badge variant="outline" className="text-xs">
                             {selected.rechazo_count} rechazos
@@ -466,6 +470,7 @@ export function RechazadosView() {
             <DialogDescription>
               {selectedAgendar ? `${selectedAgendar.nombre} • ${formatProspectPhone(selectedAgendar)}` : "Selecciona fecha y hora"}
             </DialogDescription>
+            <ProspectTreatmentBadge prospect={selectedAgendar} />
           </DialogHeader>
 
           <div className="grid gap-3">

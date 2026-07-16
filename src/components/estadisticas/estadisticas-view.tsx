@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { BarChart3, TrendingUp, Users, Target, DollarSign, Award, Calendar, Phone } from "lucide-react"
 import {
   Bar,
@@ -94,6 +95,7 @@ interface StatsDetailItem {
   estado_label?: string | null
   conclusion?: string | null
   prospect_id?: number | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
 }
 
 interface StatsDetailResponse {
@@ -852,6 +854,7 @@ export function EstadisticasView() {
                       <div className="text-sm text-muted-foreground">{formatDate(item.fecha)}</div>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
+                      <ProspectTreatmentBadge prospect={item} />
                       {item.estado_label && <Badge variant="secondary">{item.estado_label}</Badge>}
                       <Badge variant="outline">{item.tipo}</Badge>
                     </div>

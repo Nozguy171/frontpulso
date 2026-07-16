@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { API_BASE_URL } from "@/lib/api"
 import { Camera, FileText, Trash2, Upload } from "lucide-react"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type DocStatus = {
   type: string
@@ -17,6 +18,11 @@ type DocStatus = {
 }
 
 type Payload = {
+  prospecto: {
+    id: number
+    nombre: string
+    trato_prospecto?: "enojado" | "feliz" | "neutral" | null
+  }
   can_view: boolean
   can_delete: boolean
   documents: Record<string, DocStatus>
@@ -150,8 +156,11 @@ export function ProspectDocumentsPanel({ prospectId }: { prospectId: number }) {
                 <FileText className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
-                <div className="text-base font-semibold">Expediente del prospecto</div>
+                <div className="text-base font-semibold">
+                  Expediente de {data?.prospecto?.nombre ?? "prospecto"}
+                </div>
                 <div className="text-xs text-muted-foreground">INE, comprobantes y contrato del cliente vendido.</div>
+                <ProspectTreatmentBadge prospect={data?.prospecto} className="mt-2" />
               </div>
             </div>
             {!loading ? (
@@ -261,7 +270,11 @@ export function ProspectDocumentsDialog({
   open,
   onOpenChange,
 }: {
-  prospecto: { id: number; nombre?: string | null } | null
+  prospecto: {
+    id: number
+    nombre?: string | null
+    trato_prospecto?: "enojado" | "feliz" | "neutral" | null
+  } | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -273,6 +286,7 @@ export function ProspectDocumentsDialog({
           <DialogDescription>
             {prospecto?.nombre ? `Expediente de ${prospecto.nombre}` : "Expediente del cliente vendido"}
           </DialogDescription>
+          <ProspectTreatmentBadge prospect={prospecto} />
         </DialogHeader>
         {prospecto ? <ProspectDocumentsPanel prospectId={prospecto.id} /> : null}
       </DialogContent>

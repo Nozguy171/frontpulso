@@ -13,11 +13,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Clock } from "lucide-react"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type ResumeProspect = {
   id: number
   nombre: string
   numero: string
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   seguimiento_pausado?: boolean
 }
 function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
@@ -86,6 +88,7 @@ const horaInputRef = useRef<HTMLInputElement | null>(null)
               ? `Elige el día y hora base del seguimiento de ${prospect.nombre}. La primera llamada se programará el próximo mes.`
               : "Elige el día y hora base del seguimiento."}
           </DialogDescription>
+          <ProspectTreatmentBadge prospect={prospect} />
         </DialogHeader>
 
         <form onSubmit={handleSubmit} autoComplete="off" className="grid gap-4 pt-2">

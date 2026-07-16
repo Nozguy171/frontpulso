@@ -26,6 +26,7 @@ import {
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectStatusBadge } from "./prospect-status-badge"
+import { ProspectTreatmentBadge } from "./prospect-treatment-badge"
 import { ProspectDocumentsPanel } from "./prospect-documents-panel"
 import { getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
 import { formatProspectPhone } from "@/lib/prospect"
@@ -380,7 +381,10 @@ export function ProspectoDetailDialog({
                         {p.forma_obtencion_tipo === "encuesta" && (
                           <div>
                             <div className="text-xs text-muted-foreground">Trato del prospecto</div>
-                            <div className="font-medium mt-1 capitalize">{p.trato_prospecto ?? "—"}</div>
+                            <div className="mt-1">
+                              <ProspectTreatmentBadge prospect={p} />
+                              {!p.trato_prospecto ? "—" : null}
+                            </div>
                           </div>
                         )}
 
@@ -495,6 +499,7 @@ export function ProspectoDetailDialog({
                               <Badge variant="secondary" className="w-fit">
                                 {detail.resumen.recomendado_por.estado_label ?? detail.resumen.recomendado_por.estado}
                               </Badge>
+                              <ProspectTreatmentBadge prospect={detail.resumen.recomendado_por} />
                             </div>
                           </button>
                         ) : (
@@ -527,6 +532,7 @@ export function ProspectoDetailDialog({
                                   <Badge variant="secondary" className="w-fit">
                                     {r.estado_label ?? r.estado}
                                   </Badge>
+                                  <ProspectTreatmentBadge prospect={r} />
                                 </div>
                               </button>
                             ))}

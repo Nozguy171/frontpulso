@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { ProspectoDetailDialog } from "./prospecto-detail-dialog"
 import { ProspectStatusBadge } from "./prospect-status-badge"
+import { ProspectTreatmentBadge } from "./prospect-treatment-badge"
 import { formatProspectPhone } from "@/lib/prospect"
 
 type Prospecto = {
@@ -25,6 +26,7 @@ type Prospecto = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   observaciones?: string | null
   estado: string
   recomendado_por_id?: number | null
@@ -256,6 +258,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
                                 <Badge variant="secondary" className="font-mono text-xs">
                                   Encuesta: {prospecto.numero_encuesta ?? "—"}
                                 </Badge>
+                                <ProspectTreatmentBadge prospect={prospecto} />
                                 <ProspectStatusBadge prospect={prospecto} />
                               </div>
                             </div>

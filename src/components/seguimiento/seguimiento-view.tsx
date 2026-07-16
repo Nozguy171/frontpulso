@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SeguimientoResumeDialog } from "./seguimiento-resume-dialog"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsPanel } from "@/components/prospectos/prospect-documents-panel"
 import { formatProspectPhone } from "@/lib/prospect"
@@ -52,6 +53,7 @@ type SeguimientoItem = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   estado: string
@@ -96,6 +98,7 @@ type SeguimientoDetailResponse = {
     lada?: string | null
     numero_formateado?: string | null
     numero_encuesta?: string | null
+    trato_prospecto?: "enojado" | "feliz" | "neutral" | null
     observaciones?: string | null
     estado: string
     estado_label?: string | null
@@ -638,6 +641,7 @@ const renderSeguimientoSection = (
                               Encuesta: {p.numero_encuesta ?? "—"}
                             </Badge>
                             <ProspectStatusBadge prospect={p} />
+                            <ProspectTreatmentBadge prospect={p} />
 
                             <Badge variant="outline" className={`text-[11px] sm:text-xs ${statusUi.badgeClass}`}>
                               {statusUi.shortLabel}
@@ -924,6 +928,7 @@ const renderSeguimientoSection = (
     Encuesta: {selectedDetailProspect?.numero_encuesta ?? selected.numero_encuesta ?? "—"}
   </Badge>
   <ProspectStatusBadge prospect={selectedDetailProspect ?? selected} />
+  <ProspectTreatmentBadge prospect={selectedDetailProspect ?? selected} />
   <Badge variant="outline" className="text-xs">
     {selected.estado}
   </Badge>
@@ -1159,6 +1164,7 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
         <DialogDescription className="text-sm">
           {modal?.prospect?.nombre ?? "—"} • {formatProspectPhone(modal?.prospect)}
         </DialogDescription>
+        <ProspectTreatmentBadge prospect={modal?.prospect} />
       </DialogHeader>
     </div>
 

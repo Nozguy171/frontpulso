@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
@@ -47,6 +48,7 @@ prospect?: {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   created_at?: string | null
@@ -1268,6 +1270,7 @@ const llamadasListFiltradas = useMemo(() => {
                     Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
                   </Badge>
                   <ProspectStatusBadge prospect={llamada.prospect} />
+                  <ProspectTreatmentBadge prospect={llamada.prospect} />
 <Badge variant="outline" className="text-xs">
   {llamada.estado_label ?? "Pendiente"}
 </Badge>
@@ -1422,6 +1425,7 @@ const llamadasListFiltradas = useMemo(() => {
                                         Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
                                       </Badge>
                                       <ProspectStatusBadge prospect={llamada.prospect} />
+                                      <ProspectTreatmentBadge prospect={llamada.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCallStatusVisual(llamada.estado).badge}`}
@@ -1527,6 +1531,7 @@ const llamadasListFiltradas = useMemo(() => {
                           Encuesta: {selectedLlamada.prospect?.numero_encuesta ?? "—"}
                         </Badge>
                         <ProspectStatusBadge prospect={selectedLlamada.prospect} />
+                        <ProspectTreatmentBadge prospect={selectedLlamada.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCallStatusVisual(selectedLlamada.estado).badge}`}
@@ -1682,6 +1687,7 @@ const llamadasListFiltradas = useMemo(() => {
             <DialogDescription>
               {actionOpen?.llamada?.prospect?.nombre ?? "—"} • {formatProspectPhone(actionOpen?.llamada?.prospect)}
             </DialogDescription>
+            <ProspectTreatmentBadge prospect={actionOpen?.llamada?.prospect} />
           </DialogHeader>
 
           <div className="grid gap-3">
@@ -1961,6 +1967,7 @@ const llamadasListFiltradas = useMemo(() => {
                             <div className="text-muted-foreground">
                               {formatProspectPhone(amigosData.recomendado_por)} · {amigosData.recomendado_por.estado_label ?? amigosData.recomendado_por.estado ?? "—"}
                             </div>
+                            <ProspectTreatmentBadge prospect={amigosData.recomendado_por} className="mt-2" />
                           </button>
                         ) : (
                           <div className="text-sm text-muted-foreground italic">Nadie</div>
@@ -1986,6 +1993,7 @@ const llamadasListFiltradas = useMemo(() => {
                                 <div className="text-muted-foreground">
                                   {formatProspectPhone(r)} · {r.estado_label ?? r.estado ?? "—"}
                                 </div>
+                                <ProspectTreatmentBadge prospect={r} className="mt-2" />
                               </button>
                             ))}
                           </div>

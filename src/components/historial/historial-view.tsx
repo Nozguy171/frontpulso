@@ -10,6 +10,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatProspectPhone } from "@/lib/prospect"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type ProspectDTO = {
   id: number
@@ -18,6 +19,7 @@ type ProspectDTO = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
@@ -32,6 +34,7 @@ type ProspectLite = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   estado: string
@@ -56,7 +59,11 @@ type HistItem = {
   a_estado?: string | null
   detalle?: string | null
   created_at: string
-  prospect?: { id: number; nombre: string } | null
+  prospect?: {
+    id: number
+    nombre: string
+    trato_prospecto?: "enojado" | "feliz" | "neutral" | null
+  } | null
   user?: { id: number; email: string } | null
   actor?: { id: number; email: string } | null
   effective?: { id: number; email: string } | null
@@ -237,6 +244,7 @@ export function HistorialView() {
           lada: p.lada,
           numero_formateado: p.numero_formateado,
           numero_encuesta: p.numero_encuesta,
+          trato_prospecto: p.trato_prospecto,
           forma_obtencion_tipo: p.forma_obtencion_tipo,
 forma_obtencion: p.forma_obtencion,
           estado: p.estado,
@@ -430,6 +438,7 @@ forma_obtencion: p.forma_obtencion,
                                   <span className="text-foreground">—</span>
                                 )}
                               </p>
+                              <ProspectTreatmentBadge prospect={item.prospect} className="mb-2" />
 
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span>Usuario: {item.user?.email ?? "—"}</span>
@@ -496,6 +505,7 @@ forma_obtencion: p.forma_obtencion,
                         <div className="text-sm text-muted-foreground truncate">
                           {formatProspectPhone(p)} · Encuesta: {p.numero_encuesta ?? "—"}
                         </div>
+                        <ProspectTreatmentBadge prospect={p} />
                         {p.observaciones ? (
                           <div className="text-xs text-muted-foreground line-clamp-2">{p.observaciones}</div>
                         ) : (
@@ -591,11 +601,14 @@ forma_obtencion: p.forma_obtencion,
                     <>
                       <Card>
                         <CardContent className="p-4 sm:p-6 space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="font-semibold text-lg sm:text-xl">{modalData.prospect.nombre}</div>
-                            <Badge variant="secondary" className="w-fit">
-                              {modalData.prospect.estado}
-                            </Badge>
+                            <div className="flex flex-wrap gap-2">
+                              <ProspectTreatmentBadge prospect={modalData.prospect} />
+                              <Badge variant="secondary" className="w-fit">
+                                {modalData.prospect.estado}
+                              </Badge>
+                            </div>
                           </div>
 
                           <div className="text-sm text-muted-foreground">
@@ -705,6 +718,7 @@ forma_obtencion: p.forma_obtencion,
                                   <div className="text-xs text-muted-foreground">
                                     Prospecto: {item.prospect?.nombre ?? "—"} • {formatFecha(item.created_at)}
                                   </div>
+                                  <ProspectTreatmentBadge prospect={item.prospect} className="mt-2" />
                                   {niceDetalle(item) ? (
                                     <div className="text-xs text-muted-foreground mt-1">{niceDetalle(item)}</div>
                                   ) : null}

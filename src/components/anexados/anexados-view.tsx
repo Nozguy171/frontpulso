@@ -20,6 +20,7 @@ import {
 
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { formatProspectPhone } from "@/lib/prospect"
 
 type ProspectDTO = {
@@ -29,6 +30,7 @@ type ProspectDTO = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
@@ -298,6 +300,7 @@ export function AnexadosView() {
                               {p.estado}
                             </Badge>
                             <ProspectStatusBadge prospect={p} />
+                            <ProspectTreatmentBadge prospect={p} />
                             <Badge variant="outline" className="text-xs">
                               {formatFechaCorta(p.created_at)}
                             </Badge>
@@ -363,6 +366,7 @@ export function AnexadosView() {
                         <Badge variant="outline" className="text-xs">
                           {selected.estado}
                         </Badge>
+                        <ProspectTreatmentBadge prospect={selected} />
                       </div>
                     </div>
 {selected?.forma_obtencion ? (
@@ -408,6 +412,7 @@ export function AnexadosView() {
             <DialogDescription>
               {selectedAgendar ? `${selectedAgendar.nombre} • ${formatProspectPhone(selectedAgendar)}` : "Selecciona fecha y hora"}
             </DialogDescription>
+            <ProspectTreatmentBadge prospect={selectedAgendar} />
           </DialogHeader>
 
           <div className="grid gap-3">

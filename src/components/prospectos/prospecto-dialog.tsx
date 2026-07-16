@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Frown, Meh, Smile } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { formatProspectPhone } from "@/lib/prospect"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type Colaborador = {
   id: number
@@ -48,6 +49,7 @@ type RecomendadorItem = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
 }
 
 type FormaObtencion = "encuesta" | "referido" | "cita_en_frio" | "otro" | ""
@@ -684,6 +686,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                         {formatProspectPhone(recoSelected)} • Encuesta:{" "}
                         {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
                       </div>
+                      <ProspectTreatmentBadge prospect={recoSelected} className="mt-2" />
                     </div>
 
                     <Button
@@ -725,6 +728,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                                 {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"}{" "}
                                 • ID {p.id}
                               </div>
+                              <ProspectTreatmentBadge prospect={p} className="mt-2" />
                             </button>
                           ))
                         )}

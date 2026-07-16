@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
+import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker, getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
@@ -51,6 +52,7 @@ prospect?: {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   estado?: string | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
@@ -994,6 +996,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                     Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
                   </Badge>
                   <ProspectStatusBadge prospect={cita.prospect} />
+                  <ProspectTreatmentBadge prospect={cita.prospect} />
 
 <Badge variant="outline" className={`text-xs ${statusStyles.badge}`}>
   {cita.estado_label ?? statusStyles.labelFallback}
@@ -1129,6 +1132,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                         Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
                                       </Badge>
                                       <ProspectStatusBadge prospect={cita.prospect} />
+                                      <ProspectTreatmentBadge prospect={cita.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCitaStatusVisual(cita.estado).badge}`}
@@ -1233,6 +1237,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                           Encuesta: {selectedCita.prospect?.numero_encuesta ?? "—"}
                         </Badge>
                         <ProspectStatusBadge prospect={selectedCita.prospect} />
+                        <ProspectTreatmentBadge prospect={selectedCita.prospect} />
 <Badge
   variant="outline"
   className={`text-xs ${getCitaStatusVisual(selectedCita.estado).badge}`}
@@ -1407,6 +1412,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
             <DialogDescription>
               {actionOpen?.cita?.prospect?.nombre ?? "—"} • {formatProspectPhone(actionOpen?.cita?.prospect)}
             </DialogDescription>
+            <ProspectTreatmentBadge prospect={actionOpen?.cita?.prospect} />
           </DialogHeader>
 
           <div className="grid gap-3">
