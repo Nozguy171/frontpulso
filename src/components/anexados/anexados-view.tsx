@@ -29,7 +29,7 @@ type ProspectDTO = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
   estado: string
@@ -237,7 +237,7 @@ export function AnexadosView() {
 
   return (
     <>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Anexados</h1>
@@ -329,8 +329,8 @@ export function AnexadosView() {
 
       {/* MODAL DETALLE */}
       <Dialog open={!!openId} onOpenChange={(v) => !v && setOpenId(null)}>
-        <DialogContent className="p-0 overflow-hidden w-[96vw] max-w-2xl h-[88vh] sm:h-auto sm:rounded-xl">
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+        <DialogContent className="flex h-[88dvh] w-[96vw] max-w-2xl flex-col overflow-hidden rounded-xl p-0">
+          <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex items-center justify-between gap-2 p-4 sm:p-6">
               <DialogHeader className="space-y-1">
                 <DialogTitle className="text-lg sm:text-xl">Detalle del prospecto</DialogTitle>
@@ -343,7 +343,7 @@ export function AnexadosView() {
             </div>
           </div>
 
-          <ScrollArea className="h-[calc(88vh-72px)] sm:h-auto">
+          <ScrollArea className="min-h-0 flex-1">
             <div className="p-4 sm:p-6 space-y-4">
               {!selected ? (
                 <div className="text-sm text-muted-foreground">Cargando…</div>
@@ -371,7 +371,7 @@ export function AnexadosView() {
     {selected.forma_obtencion}
   </div>
 ) : null}
-                    <div className="pt-3 flex justify-end gap-2">
+                    <div className="flex flex-col-reverse gap-2 pt-3 sm:flex-row sm:justify-end">
                       <Button
                         variant="secondary"
                         onClick={() => {

@@ -52,7 +52,7 @@ type SeguimientoItem = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   estado: string
   venta_monto_sin_iva: number | null
@@ -1149,9 +1149,9 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
 <Dialog open={!!modal} onOpenChange={(v) => !v && setModal(null)}>
   <DialogContent
     onOpenAutoFocus={(e) => e.preventDefault()}
-    className="w-[min(620px,96vw)] rounded-xl p-0 overflow-hidden"
+    className="flex max-h-[calc(100dvh-1rem)] w-[min(620px,96vw)] flex-col overflow-hidden rounded-xl p-0"
   >
-    <div className="border-b p-5 sm:p-6">
+    <div className="shrink-0 border-b p-5 sm:p-6">
       <DialogHeader>
         <DialogTitle className="text-lg">
           {modal?.type === "llamada" ? "Programar llamada" : modal?.type === "venta" ? "Registrar venta" : "Agregar observación"}
@@ -1162,7 +1162,7 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
       </DialogHeader>
     </div>
 
-    <div className="p-5 sm:p-6 grid gap-4">
+    <div className="scrollbar-thin grid min-h-0 flex-1 gap-4 overflow-y-auto p-5 sm:p-6">
                 {modal?.type === "llamada" ? (
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1290,7 +1290,7 @@ disabled={saving || !selected.seguimiento_activo || selected.seguimiento_pausado
                   </div>
                 ) : null}
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
                   <Button variant="ghost" onClick={() => setModal(null)} disabled={saving}>
                     Cancelar
                   </Button>

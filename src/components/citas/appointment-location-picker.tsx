@@ -208,7 +208,7 @@ export function AppointmentLocationPicker({ value, onChange, inputId = "appointm
         </div>
       ) : null}
 
-      <div ref={mapEl} className="h-64 rounded-md border bg-muted" />
+      <div ref={mapEl} className="h-48 rounded-md border bg-muted sm:h-64" />
 
       {value.ubicacion ? (
         <Button type="button" variant="outline" size="sm" asChild>

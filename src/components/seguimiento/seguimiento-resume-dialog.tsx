@@ -88,7 +88,7 @@ const horaInputRef = useRef<HTMLInputElement | null>(null)
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid gap-4 pt-2">
+        <form onSubmit={handleSubmit} autoComplete="off" className="grid gap-4 pt-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="resume-dia" className="mb-1 block">

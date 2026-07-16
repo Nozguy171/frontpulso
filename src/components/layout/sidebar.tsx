@@ -367,7 +367,7 @@ const clearActing = () => {
               <DialogDescription>Estilo y contraseña de esta cuenta.</DialogDescription>
             </DialogHeader>
 
-            <form className="space-y-5" onSubmit={saveSettings}>
+            <form className="space-y-5" onSubmit={saveSettings} autoComplete="off">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Palette className="h-4 w-4" />

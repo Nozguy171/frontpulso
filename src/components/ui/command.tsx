@@ -62,8 +62,12 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  autoComplete,
+  name,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
+  const id = React.useId()
+
   return (
     <div
       data-slot="command-input-wrapper"
@@ -72,6 +76,8 @@ function CommandInput({
       <SearchIcon className="size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
+        autoComplete={autoComplete ?? "new-password"}
+        name={name ?? `pulso-no-autofill-${id}`}
         className={cn(
           "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
           className

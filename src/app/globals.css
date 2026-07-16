@@ -239,9 +239,28 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-color: var(--border) transparent;
+    scrollbar-width: thin;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--border);
+    background-clip: padding-box;
+  }
+  html,
+  body {
+    max-width: 100%;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply overflow-x-hidden bg-background text-foreground;
     background-image: var(--app-texture);
     background-attachment: fixed;
   }
@@ -249,18 +268,23 @@
 
 /* Premium scrollbar styling */
 @layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: oklch(0.18 0.01 260);
+    background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.35 0.015 260);
+    background: var(--border);
     border-radius: 3px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.45 0.018 260);
+    background: var(--muted-foreground);
   }
 }
 

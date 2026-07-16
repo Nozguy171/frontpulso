@@ -47,7 +47,7 @@ prospect?: {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   created_at?: string | null
   seguimiento_pausado?: boolean | null
@@ -1147,7 +1147,7 @@ const llamadasListFiltradas = useMemo(() => {
 
   return (
     <>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Llamadas</h1>
           <p className="text-muted-foreground">Gestiona tus llamadas programadas con vista de lista y calendario</p>
@@ -1487,14 +1487,13 @@ const llamadasListFiltradas = useMemo(() => {
       <Dialog open={!!openLlamadaId} onOpenChange={(v) => !v && setOpenLlamadaId(null)}>
         <DialogContent
           className="
-            p-0 overflow-hidden
-            w-[96vw] sm:w-full max-w-2xl
-            h-[88vh] sm:h-[80vh] lg:h-[78vh]
+            flex h-[88dvh] w-[96vw] max-w-2xl flex-col
+            overflow-hidden p-0 sm:w-full sm:h-[80dvh] lg:h-[78dvh]
             rounded-xl
           "
         >
           {/* header fijo */}
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+          <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex items-center justify-between gap-2 p-4 sm:p-6">
               <DialogHeader className="space-y-1">
                 <DialogTitle className="text-lg sm:text-xl">Detalle de la llamada</DialogTitle>
@@ -1510,7 +1509,7 @@ const llamadasListFiltradas = useMemo(() => {
           </div>
 
           {/* cuerpo con scroll: height = total - header */}
-          <ScrollArea className="h-[calc(88vh-88px)] sm:h-[calc(80vh-96px)] lg:h-[calc(78vh-96px)]">
+          <ScrollArea className="min-h-0 flex-1">
             <div className="p-4 sm:p-6 space-y-4">
               {!selectedLlamada ? (
                 <div className="text-sm text-muted-foreground">Cargando…</div>

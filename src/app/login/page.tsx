@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
 import { API_BASE_URL } from "@/lib/api";
 import { PULSO_ADMIN_ENABLED } from "@/lib/features";
 
@@ -42,8 +43,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-8 space-y-6">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-6">
+      <div className="w-full max-w-md space-y-6 rounded-xl border border-border bg-card p-4 shadow-xl sm:p-8">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
@@ -63,12 +64,12 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
               Usuario o número telefónico
             </label>
-            <input
+            <Input
               type="text"
               required
               value={login}
@@ -82,7 +83,7 @@ export default function LoginPage() {
             <label className="text-sm font-medium text-foreground">
               Contraseña
             </label>
-            <input
+            <Input
               type="password"
               required
               value={password}

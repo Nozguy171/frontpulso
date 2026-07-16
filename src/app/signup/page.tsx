@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
 import { API_BASE_URL } from "@/lib/api";
 
 function onlyDigitsMax10(v: string) {
@@ -93,8 +94,8 @@ export default function SignupPage() {
     numeroTelefonico.length > 0 && numeroTelefonico.length !== 10;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-8 space-y-6">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-6">
+      <div className="w-full max-w-md space-y-6 rounded-xl border border-border bg-card p-4 shadow-xl sm:p-8">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
@@ -114,12 +115,12 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
               Nombre completo
             </label>
-            <input
+            <Input
               type="text"
               required
               value={email}
@@ -133,7 +134,7 @@ export default function SignupPage() {
             <label className="text-sm font-medium text-foreground">
               Username
             </label>
-            <input
+            <Input
               type="text"
               required
               value={username}
@@ -147,7 +148,7 @@ export default function SignupPage() {
             <label className="text-sm font-medium text-foreground">
               Número telefónico
             </label>
-            <input
+            <Input
               type="text"
               inputMode="numeric"
               required
@@ -167,7 +168,7 @@ export default function SignupPage() {
             <label className="text-sm font-medium text-foreground">
               Contraseña
             </label>
-            <input
+            <Input
               type="password"
               required
               value={password}
@@ -181,7 +182,7 @@ export default function SignupPage() {
             <label className="text-sm font-medium text-foreground">
               Confirmar contraseña
             </label>
-            <input
+            <Input
               type="password"
               required
               value={confirm}

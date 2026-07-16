@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Input } from "@/components/ui/input"
 import { API_BASE_URL } from "@/lib/api"
 
 type InviteStatus =
@@ -167,10 +168,10 @@ export default function SignupCollaboratorClient() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Nombre completo</label>
-            <input
+            <Input
               type="text"
               required
               value={email}
@@ -183,7 +184,7 @@ export default function SignupCollaboratorClient() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Username</label>
-            <input
+            <Input
               type="text"
               required
               value={username}
@@ -196,7 +197,7 @@ export default function SignupCollaboratorClient() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Número telefónico</label>
-            <input
+            <Input
               type="text"
               inputMode="numeric"
               required
@@ -213,7 +214,7 @@ export default function SignupCollaboratorClient() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Contraseña</label>
-            <input
+            <Input
               type="password"
               required
               value={password}
@@ -226,7 +227,7 @@ export default function SignupCollaboratorClient() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Confirmar contraseña</label>
-            <input
+            <Input
               type="password"
               required
               value={confirm}

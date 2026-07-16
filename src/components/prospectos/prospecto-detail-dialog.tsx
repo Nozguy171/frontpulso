@@ -37,12 +37,13 @@ type ProspectoBase = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   observaciones?: string | null
   estado: string
   estado_label?: string | null
   recomendado_por_id?: number | null
   recomendado_por_nombre?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   venta_monto_sin_iva?: number | null
   venta_fecha?: string | null
@@ -298,8 +299,8 @@ export function ProspectoDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] max-w-none sm:max-w-[820px] p-0 overflow-hidden">
-          <div className="border-b bg-background/95 backdrop-blur">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-[820px]">
+          <div className="shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex flex-col gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <DialogHeader className="min-w-0 flex-1">
@@ -340,7 +341,7 @@ export function ProspectoDetailDialog({
             </div>
           </div>
 
-          <ScrollArea key={activeProspecto?.id} className="max-h-[80vh]">
+          <ScrollArea key={activeProspecto?.id} className="min-h-0 flex-1">
             <div className="p-4 sm:p-6 grid gap-4">
               {loading ? (
                 <div className="text-sm text-muted-foreground">Cargando detalle...</div>
@@ -375,6 +376,13 @@ export function ProspectoDetailDialog({
                           <div className="text-xs text-muted-foreground">Número de encuesta</div>
                           <div className="font-medium mt-1">{p.numero_encuesta ?? "—"}</div>
                         </div>
+
+                        {p.forma_obtencion_tipo === "encuesta" && (
+                          <div>
+                            <div className="text-xs text-muted-foreground">Trato del prospecto</div>
+                            <div className="font-medium mt-1 capitalize">{p.trato_prospecto ?? "—"}</div>
+                          </div>
+                        )}
 
                         <div>
                           <div className="text-xs text-muted-foreground">Forma de obtención</div>

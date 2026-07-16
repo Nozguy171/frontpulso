@@ -29,7 +29,7 @@ type Prospecto = {
   estado: string
   recomendado_por_id?: number | null
   recomendado_por_nombre?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   venta_monto_sin_iva?: number | null
   venta_fecha?: string | null
@@ -180,8 +180,8 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[95vw] max-w-5xl p-0 overflow-hidden">
-          <div className="border-b p-4 sm:p-6">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
+          <div className="shrink-0 border-b p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Buscador general de prospectos</DialogTitle>
               <DialogDescription>
@@ -217,7 +217,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
             </div>
           </div>
 
-          <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-6">
+          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {!data || data.prospectos.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">

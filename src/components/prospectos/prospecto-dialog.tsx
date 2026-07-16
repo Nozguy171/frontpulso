@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Frown, Meh, Smile } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { formatProspectPhone } from "@/lib/prospect"
 
@@ -49,7 +50,32 @@ type RecomendadorItem = {
   numero_encuesta?: string | null
 }
 
-type FormaObtencion = "encuesta" | "cita_en_frio" | "otro" | ""
+type FormaObtencion = "encuesta" | "referido" | "cita_en_frio" | "otro" | ""
+type TratoProspecto = "enojado" | "feliz" | "neutral" | ""
+
+const TRATOS_ENCUESTA = [
+  {
+    value: "enojado",
+    label: "Enojado",
+    Icon: Frown,
+    color: "text-red-500",
+    selected: "border-red-500 bg-red-500/10",
+  },
+  {
+    value: "feliz",
+    label: "Feliz",
+    Icon: Smile,
+    color: "text-emerald-500",
+    selected: "border-emerald-500 bg-emerald-500/10",
+  },
+  {
+    value: "neutral",
+    label: "Neutral",
+    Icon: Meh,
+    color: "text-amber-400",
+    selected: "border-amber-400 bg-amber-400/10",
+  },
+] as const
 
 interface ProspectoDialogProps {
   open: boolean
@@ -87,6 +113,7 @@ function getFormaObtencionTexto(
   otroTexto: string
 ): string | undefined {
   if (tipo === "encuesta") return "Encuesta"
+  if (tipo === "referido") return "Referido"
   if (tipo === "cita_en_frio") return "Cita en frío"
   if (tipo === "otro") {
     const clean = otroTexto.trim()
@@ -101,6 +128,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     numero: "",
     lada: "",
     numeroEncuesta: "",
+    tratoProspecto: "" as TratoProspecto,
     observaciones: "",
     recomendadoPorId: "",
     formaObtencionTipo: "" as FormaObtencion,
@@ -313,6 +341,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     if (!formData.nombre.trim()) return false
     if (!phoneOk) return false
     if (formData.formaObtencionTipo === "encuesta" && !formData.numeroEncuesta.trim()) return false
+    if (formData.formaObtencionTipo === "encuesta" && !formData.tratoProspecto) return false
+    if (formData.formaObtencionTipo === "referido" && !formData.recomendadoPorId) return false
     if (!formaObtencionOk) return false
 
     if (collaborator) return true
@@ -326,6 +356,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
     loading,
     formData.nombre,
     formData.numeroEncuesta,
+    formData.tratoProspecto,
+    formData.recomendadoPorId,
     formData.formaObtencionTipo,
     phoneOk,
     formaObtencionOk,
@@ -369,8 +401,10 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
           lada: formData.lada || undefined,
           numero_encuesta:
             formData.formaObtencionTipo === "encuesta" ? formData.numeroEncuesta.trim() : undefined,
+          trato_prospecto:
+            formData.formaObtencionTipo === "encuesta" ? formData.tratoProspecto : undefined,
           observaciones: formData.observaciones?.trim() || undefined,
-          recomendado_por_id: formData.recomendadoPorId
+          recomendado_por_id: formData.formaObtencionTipo !== "encuesta" && formData.recomendadoPorId
             ? Number(formData.recomendadoPorId)
             : undefined,
           assigned_to_user_id: assignee,
@@ -393,6 +427,7 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
         numero: "",
         lada: "",
         numeroEncuesta: "",
+        tratoProspecto: "",
         observaciones: "",
         recomendadoPorId: "",
         formaObtencionTipo: "",
@@ -526,20 +561,34 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
 
               <RadioGroup
                 value={formData.formaObtencionTipo}
-                onValueChange={(value: FormaObtencion) =>
+                onValueChange={(value: FormaObtencion) => {
                   setFormData((prev) => ({
                     ...prev,
                     formaObtencionTipo: value,
                     formaObtencionOtro: value === "otro" ? prev.formaObtencionOtro : "",
                     numeroEncuesta: value === "encuesta" ? prev.numeroEncuesta : "",
+                    tratoProspecto: value === "encuesta" ? prev.tratoProspecto : "",
+                    recomendadoPorId: value === "encuesta" ? "" : prev.recomendadoPorId,
                   }))
-                }
+                  if (value === "encuesta") {
+                    setRecoSelected(null)
+                    setRecoQuery("")
+                    setRecoResults([])
+                  }
+                }}
                 className="flex flex-wrap items-center gap-6"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="encuesta" id="forma-encuesta" />
                   <Label htmlFor="forma-encuesta" className="cursor-pointer font-normal">
                     Encuesta
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="referido" id="forma-referido" />
+                  <Label htmlFor="forma-referido" className="cursor-pointer font-normal">
+                    Referido
                   </Label>
                 </div>
 
@@ -574,80 +623,119 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
             </div>
 
             {formData.formaObtencionTipo === "encuesta" && (
-              <div className="grid gap-2">
-                <Label htmlFor="numero-encuesta">Número de encuesta *</Label>
-                <Input
-                  id="numero-encuesta"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="new-password"
-                  value={formData.numeroEncuesta}
-                  onChange={(e) => setFormData({ ...formData, numeroEncuesta: onlyDigits(e.target.value) })}
-                  required
-                />
-              </div>
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="numero-encuesta">Número de encuesta *</Label>
+                  <Input
+                    id="numero-encuesta"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="new-password"
+                    value={formData.numeroEncuesta}
+                    onChange={(e) =>
+                      setFormData({ ...formData, numeroEncuesta: onlyDigits(e.target.value) })
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>¿Cómo te trató el prospecto? *</Label>
+                  <RadioGroup
+                    value={formData.tratoProspecto}
+                    onValueChange={(value: TratoProspecto) =>
+                      setFormData((prev) => ({ ...prev, tratoProspecto: value }))
+                    }
+                    className="grid grid-cols-3 gap-3"
+                  >
+                    {TRATOS_ENCUESTA.map(({ value, label, Icon, color, selected }) => (
+                      <div key={value}>
+                        <RadioGroupItem value={value} id={`trato-${value}`} className="sr-only" />
+                        <Label
+                          htmlFor={`trato-${value}`}
+                          className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors ${
+                            formData.tratoProspecto === value
+                              ? selected
+                              : "border-border hover:bg-muted/40"
+                          }`}
+                        >
+                          <Icon className={`h-10 w-10 ${color}`} />
+                          <span>{label}</span>
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </>
             )}
 
-            <div className="grid gap-2">
-              <Label>Recomendado por (opcional)</Label>
+            {formData.formaObtencionTipo !== "encuesta" && (
+              <div className="grid gap-2">
+                <Label>
+                  Recomendado por{" "}
+                  {formData.formaObtencionTipo === "referido" ? "*" : "(opcional)"}
+                </Label>
 
-              {recoSelected ? (
-                <div className="flex items-center justify-between gap-2 rounded-md border p-3">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{recoSelected.nombre}</div>
-                    <div className="text-xs text-muted-foreground font-mono truncate">
-                      {formatProspectPhone(recoSelected)} • Encuesta: {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
+                {recoSelected ? (
+                  <div className="flex items-center justify-between gap-2 rounded-md border p-3">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{recoSelected.nombre}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">
+                        {formatProspectPhone(recoSelected)} • Encuesta:{" "}
+                        {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
+                      </div>
                     </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setRecoSelected(null)
+                        setFormData((prev) => ({ ...prev, recomendadoPorId: "" }))
+                      }}
+                    >
+                      Quitar
+                    </Button>
                   </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Buscar recomendador por nombre..."
+                      autoComplete="new-password"
+                      value={recoQuery}
+                      onChange={(e) => setRecoQuery(e.target.value)}
+                    />
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setRecoSelected(null)
-                      setFormData((prev) => ({ ...prev, recomendadoPorId: "" }))
-                    }}
-                  >
-                    Quitar
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Input
-                    placeholder="Buscar recomendador por nombre..."
-                    autoComplete="new-password"
-                    value={recoQuery}
-                    onChange={(e) => setRecoQuery(e.target.value)}
-                  />
-
-                  <div className="rounded-md border">
-                    <div className="max-h-52 overflow-auto">
-                      {recoLoading ? (
-                        <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
-                      ) : recoQuery.trim() && recoResults.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground">Sin resultados</div>
-                      ) : (
-                        recoResults.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => selectRecomendador(p)}
-                            className="w-full border-b px-3 py-2 text-left hover:bg-muted/40 last:border-b-0"
-                          >
-                            <div className="font-medium">{p.nombre}</div>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"} • ID {p.id}
-                            </div>
-                          </button>
-                        ))
-                      )}
+                    <div className="rounded-md border">
+                      <div className="max-h-52 overflow-auto">
+                        {recoLoading ? (
+                          <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
+                        ) : recoQuery.trim() && recoResults.length === 0 ? (
+                          <div className="p-3 text-sm text-muted-foreground">Sin resultados</div>
+                        ) : (
+                          recoResults.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => selectRecomendador(p)}
+                              className="w-full border-b px-3 py-2 text-left hover:bg-muted/40 last:border-b-0"
+                            >
+                              <div className="font-medium">{p.nombre}</div>
+                              <div className="font-mono text-xs text-muted-foreground">
+                                {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"}{" "}
+                                • ID {p.id}
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <input type="hidden" value={formData.recomendadoPorId} readOnly />
-                </>
-              )}
-            </div>
+                    <input type="hidden" value={formData.recomendadoPorId} readOnly />
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-2">
               <Label htmlFor="observaciones">Observaciones (opcional)</Label>

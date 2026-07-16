@@ -22,11 +22,12 @@ type Prospecto = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
+  trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   observaciones?: string | null
   estado: string
   recomendado_por_id?: number | null
   recomendado_por_nombre?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   venta_monto_sin_iva?: number | null
   venta_fecha?: string | null

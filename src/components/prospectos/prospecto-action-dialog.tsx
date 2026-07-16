@@ -367,11 +367,11 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="
-            w-[95vw] max-w-none sm:max-w-[420px]
-            p-0 overflow-hidden
+            flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-none flex-col
+            overflow-hidden p-0 sm:max-w-[420px]
           "
         >
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+          <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex items-start justify-between gap-3 p-4 sm:p-6">
               <div className="min-w-0">
                 <DialogHeader className="space-y-1">
@@ -397,7 +397,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          <ScrollArea className="max-h-[75vh]">
+          <ScrollArea className="min-h-0 flex-1">
             <div className="grid gap-2 p-4 sm:p-6">
               <Button
                 variant="outline"

@@ -18,7 +18,7 @@ type ProspectDTO = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   observaciones?: string | null
   estado: string
@@ -32,7 +32,7 @@ type ProspectLite = {
   lada?: string | null
   numero_formateado?: string | null
   numero_encuesta?: string | null
-  forma_obtencion_tipo?: "encuesta" | "cita_en_frio" | "otro" | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
 forma_obtencion?: string | null
   estado: string
   observaciones?: string | null
@@ -351,7 +351,7 @@ forma_obtencion: p.forma_obtencion,
 
   return (
     <>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Historial</h1>
           <p className="text-muted-foreground">Registro completo de todos los movimientos del sistema</p>
@@ -569,9 +569,9 @@ forma_obtencion: p.forma_obtencion,
       </div>
 
       <Dialog open={!!openProspectId} onOpenChange={(v) => !v && setOpenProspectId(null)}>
-        <DialogContent className="w-[95vw] max-w-3xl p-0">
-          <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
-            <div className="p-4 sm:p-6 border-b">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">Prospecto</DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm">
@@ -580,8 +580,8 @@ forma_obtencion: p.forma_obtencion,
               </DialogHeader>
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[calc(85vh-120px)] sm:h-[calc(80vh-140px)]">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
                 <div className="p-4 sm:p-6 space-y-4">
                   {loadingModal ? (
                     <div className="text-sm text-muted-foreground">Cargando...</div>
@@ -659,9 +659,9 @@ forma_obtencion: p.forma_obtencion,
       </Dialog>
 
       <Dialog open={!!openUserId} onOpenChange={(v) => !v && setOpenUserId(null)}>
-        <DialogContent className="w-[95vw] max-w-3xl p-0">
-          <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
-            <div className="p-4 sm:p-6 border-b">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">Actividad del usuario</DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm">
@@ -670,8 +670,8 @@ forma_obtencion: p.forma_obtencion,
               </DialogHeader>
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[calc(85vh-120px)] sm:h-[calc(80vh-140px)]">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
                 <div className="p-4 sm:p-6 space-y-3">
                   {loadingUserModal ? (
                     <div className="text-sm text-muted-foreground">Cargando...</div>

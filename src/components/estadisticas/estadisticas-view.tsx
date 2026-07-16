@@ -356,7 +356,7 @@ export function EstadisticasView() {
 
   return (
     <>
-      <div className="p-8">
+      <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Estadísticas y Métricas</h1>
@@ -823,12 +823,12 @@ export function EstadisticasView() {
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-h-[82vh] overflow-hidden sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{detailTitle}</DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[62vh] space-y-3 overflow-y-auto pr-1">
+          <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {detailLoading ? (
               <div className="rounded-lg border p-4 text-sm text-muted-foreground">Cargando detalle...</div>
             ) : detailError ? (

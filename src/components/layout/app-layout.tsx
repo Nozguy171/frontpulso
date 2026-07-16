@@ -40,7 +40,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Button>
               </DialogTrigger>
 
-<DialogContent className="p-0 w-72 max-w-[85vw] h-[100dvh] left-0 top-0 translate-x-0 translate-y-0 rounded-none border-r">
+              <DialogContent className="left-0 top-0 h-[100dvh] max-h-none w-72 max-w-[85vw] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-r p-0">
                 <DialogHeader>
                   <VisuallyHidden>
                     <DialogTitle>Menú principal</DialogTitle>
@@ -59,7 +59,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         {/* Content */}
-        <main className="flex-1 min-h-0 overflow-y-auto">
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </div>
