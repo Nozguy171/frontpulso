@@ -21,7 +21,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
-import { formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
+import { formatProspectPhone, getLastAppointmentLocation, isSurveyProspect } from "@/lib/prospect"
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 import { Calendar as CalendarIcon, ChevronDown, Phone, X, XCircle, Users, FileText, Clock } from "lucide-react"
@@ -586,7 +586,11 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
     <div className="min-w-0">
       <div className="font-medium">{amigosData.recomendado_por.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {formatProspectPhone(amigosData.recomendado_por)} • Encuesta: {amigosData.recomendado_por.numero_encuesta ?? "—"} • ID {amigosData.recomendado_por.id}
+        {formatProspectPhone(amigosData.recomendado_por)}
+        {isSurveyProspect(amigosData.recomendado_por)
+          ? ` • Encuesta: ${amigosData.recomendado_por.numero_encuesta ?? "—"}`
+          : ""}{" "}
+        • ID {amigosData.recomendado_por.id}
       </div>
       <ProspectTreatmentBadge prospect={amigosData.recomendado_por} className="mt-2" />
     </div>
@@ -623,7 +627,9 @@ amigosData!.recomendados.map((p) => (
     <div className="min-w-0">
       <div className="font-medium">{p.nombre}</div>
       <div className="text-xs text-muted-foreground font-mono">
-        {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"} • {p.estado ?? "—"} • ID {p.id}
+        {formatProspectPhone(p)}
+        {isSurveyProspect(p) ? ` • Encuesta: ${p.numero_encuesta ?? "—"}` : ""} •{" "}
+        {p.estado ?? "—"} • ID {p.id}
       </div>
       <ProspectTreatmentBadge prospect={p} className="mt-2" />
     </div>
@@ -808,7 +814,7 @@ amigosData!.recomendados.map((p) => (
                     <span className="font-medium">Forma de obtención:</span>{" "}
                     {prospecto.forma_obtencion || "—"}
                   </div>
-                  {prospecto.forma_obtencion_tipo === "encuesta" ? (
+                  {isSurveyProspect(prospecto) ? (
                     <div>
                       <span className="font-medium">Encuesta:</span>{" "}
                       {prospecto.numero_encuesta || "—"}

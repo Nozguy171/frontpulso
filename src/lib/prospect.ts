@@ -16,6 +16,12 @@ type ProspectFollowupLike = {
   seguimiento_pausado?: boolean | null
 }
 
+type ProspectSurveyLike = {
+  forma_obtencion_tipo?: string | null
+  forma_obtencion?: string | null
+  numero_encuesta?: string | null
+}
+
 export function formatProspectPhone(prospect?: ProspectPhoneLike | null) {
   if (!prospect) return "--"
   if (prospect.numero_formateado) return prospect.numero_formateado
@@ -35,4 +41,14 @@ export function getLastAppointmentLocation(prospect?: ProspectLocationLike | nul
 
 export function canStartOrResumeFollowup(prospect?: ProspectFollowupLike | null) {
   return prospect?.venta_monto_sin_iva != null && (!prospect.seguimiento_fecha_base || !!prospect.seguimiento_pausado)
+}
+
+export function isSurveyProspect(prospect?: ProspectSurveyLike | null) {
+  const acquisitionType = prospect?.forma_obtencion_tipo?.trim().toLowerCase()
+  if (acquisitionType) return acquisitionType === "encuesta"
+
+  const acquisitionLabel = prospect?.forma_obtencion?.trim().toLowerCase()
+  if (acquisitionLabel) return acquisitionLabel === "encuesta"
+
+  return !!prospect?.numero_encuesta?.trim()
 }

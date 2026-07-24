@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { formatProspectPhone } from "@/lib/prospect"
+import { formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type ProspectDTO = {
@@ -503,7 +503,8 @@ forma_obtencion: p.forma_obtencion,
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground truncate">
-                          {formatProspectPhone(p)} · Encuesta: {p.numero_encuesta ?? "—"}
+                          {formatProspectPhone(p)}
+                          {isSurveyProspect(p) ? ` · Encuesta: ${p.numero_encuesta ?? "—"}` : ""}
                         </div>
                         <ProspectTreatmentBadge prospect={p} />
                         {p.observaciones ? (
@@ -612,7 +613,10 @@ forma_obtencion: p.forma_obtencion,
                           </div>
 
                           <div className="text-sm text-muted-foreground">
-                            {formatProspectPhone(modalData.prospect)} · Encuesta: {modalData.prospect.numero_encuesta ?? "—"}
+                            {formatProspectPhone(modalData.prospect)}
+                            {isSurveyProspect(modalData.prospect)
+                              ? ` · Encuesta: ${modalData.prospect.numero_encuesta ?? "—"}`
+                              : ""}
                           </div>
 {modalData.prospect.forma_obtencion ? (
   <div className="text-sm text-muted-foreground">

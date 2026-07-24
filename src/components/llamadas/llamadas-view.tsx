@@ -31,7 +31,12 @@ import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatme
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker } from "@/components/citas/appointment-location-picker"
-import { canStartOrResumeFollowup, formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
+import {
+  canStartOrResumeFollowup,
+  formatProspectPhone,
+  getLastAppointmentLocation,
+  isSurveyProspect,
+} from "@/lib/prospect"
 
 type LlamadaDTO = {
   id: number
@@ -1266,9 +1271,11 @@ const llamadasListFiltradas = useMemo(() => {
                   <Badge variant="secondary" className="truncate">
                     {formatProspectPhone(llamada.prospect)}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
-                  </Badge>
+                  {isSurveyProspect(llamada.prospect) ? (
+                    <Badge variant="outline" className="text-xs">
+                      Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
+                    </Badge>
+                  ) : null}
                   <ProspectStatusBadge prospect={llamada.prospect} />
                   <ProspectTreatmentBadge prospect={llamada.prospect} />
 <Badge variant="outline" className="text-xs">
@@ -1421,9 +1428,11 @@ const llamadasListFiltradas = useMemo(() => {
                                     </h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
                                       <Badge variant="secondary">{formatProspectPhone(llamada.prospect)}</Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
-                                      </Badge>
+                                      {isSurveyProspect(llamada.prospect) ? (
+                                        <Badge variant="outline" className="text-xs">
+                                          Encuesta: {llamada.prospect?.numero_encuesta ?? "—"}
+                                        </Badge>
+                                      ) : null}
                                       <ProspectStatusBadge prospect={llamada.prospect} />
                                       <ProspectTreatmentBadge prospect={llamada.prospect} />
 <Badge
@@ -1527,9 +1536,11 @@ const llamadasListFiltradas = useMemo(() => {
                         <Badge variant="secondary" className="truncate">
                           {formatProspectPhone(selectedLlamada.prospect)}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Encuesta: {selectedLlamada.prospect?.numero_encuesta ?? "—"}
-                        </Badge>
+                        {isSurveyProspect(selectedLlamada.prospect) ? (
+                          <Badge variant="outline" className="text-xs">
+                            Encuesta: {selectedLlamada.prospect?.numero_encuesta ?? "—"}
+                          </Badge>
+                        ) : null}
                         <ProspectStatusBadge prospect={selectedLlamada.prospect} />
                         <ProspectTreatmentBadge prospect={selectedLlamada.prospect} />
 <Badge

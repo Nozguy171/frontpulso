@@ -32,7 +32,7 @@ import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatme
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsDialog } from "@/components/prospectos/prospect-documents-panel"
 import { AppointmentLocationPicker, getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
-import { canStartOrResumeFollowup, formatProspectPhone } from "@/lib/prospect"
+import { canStartOrResumeFollowup, formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 
 type CitaDTO = {
   id: number
@@ -992,9 +992,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   <Badge variant="secondary" className="truncate">
                     {formatProspectPhone(cita.prospect)}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
-                  </Badge>
+                  {isSurveyProspect(cita.prospect) ? (
+                    <Badge variant="outline" className="text-xs">
+                      Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
+                    </Badge>
+                  ) : null}
                   <ProspectStatusBadge prospect={cita.prospect} />
                   <ProspectTreatmentBadge prospect={cita.prospect} />
 
@@ -1128,9 +1130,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{cita.prospect?.nombre ?? "—"}</h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
                                       <Badge variant="secondary">{formatProspectPhone(cita.prospect)}</Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
-                                      </Badge>
+                                      {isSurveyProspect(cita.prospect) ? (
+                                        <Badge variant="outline" className="text-xs">
+                                          Encuesta: {cita.prospect?.numero_encuesta ?? "—"}
+                                        </Badge>
+                                      ) : null}
                                       <ProspectStatusBadge prospect={cita.prospect} />
                                       <ProspectTreatmentBadge prospect={cita.prospect} />
 <Badge
@@ -1233,9 +1237,11 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                         <Badge variant="secondary" className="truncate">
                           {formatProspectPhone(selectedCita.prospect)}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Encuesta: {selectedCita.prospect?.numero_encuesta ?? "—"}
-                        </Badge>
+                        {isSurveyProspect(selectedCita.prospect) ? (
+                          <Badge variant="outline" className="text-xs">
+                            Encuesta: {selectedCita.prospect?.numero_encuesta ?? "—"}
+                          </Badge>
+                        ) : null}
                         <ProspectStatusBadge prospect={selectedCita.prospect} />
                         <ProspectTreatmentBadge prospect={selectedCita.prospect} />
 <Badge

@@ -21,7 +21,7 @@ import {
 import { API_BASE_URL } from "@/lib/api"
 import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-badge"
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
-import { formatProspectPhone } from "@/lib/prospect"
+import { formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 
 type ProspectDTO = {
   id: number
@@ -293,9 +293,11 @@ export function AnexadosView() {
                             <Badge variant="secondary" className="truncate">
                               {formatProspectPhone(p)}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              Encuesta: {p.numero_encuesta ?? "—"}
-                            </Badge>
+                            {isSurveyProspect(p) ? (
+                              <Badge variant="outline" className="text-xs">
+                                Encuesta: {p.numero_encuesta ?? "—"}
+                              </Badge>
+                            ) : null}
                             <Badge variant="outline" className="text-xs">
                               {p.estado}
                             </Badge>
@@ -360,9 +362,11 @@ export function AnexadosView() {
                         <Badge variant="secondary" className="truncate">
                           {formatProspectPhone(selected)}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Encuesta: {selected.numero_encuesta ?? "—"}
-                        </Badge>
+                        {isSurveyProspect(selected) ? (
+                          <Badge variant="outline" className="text-xs">
+                            Encuesta: {selected.numero_encuesta ?? "—"}
+                          </Badge>
+                        ) : null}
                         <Badge variant="outline" className="text-xs">
                           {selected.estado}
                         </Badge>

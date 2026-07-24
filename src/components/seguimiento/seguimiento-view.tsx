@@ -14,7 +14,7 @@ import { ProspectStatusBadge } from "@/components/prospectos/prospect-status-bad
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 import { ProspectoDetailDialog } from "@/components/prospectos/prospecto-detail-dialog"
 import { ProspectDocumentsPanel } from "@/components/prospectos/prospect-documents-panel"
-import { formatProspectPhone } from "@/lib/prospect"
+import { formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 
 
 
@@ -637,9 +637,11 @@ const renderSeguimientoSection = (
                             <Badge variant="secondary" className="max-w-[220px] truncate">
                               {formatProspectPhone(p)}
                             </Badge>
-                            <Badge variant="outline" className="text-[11px] sm:text-xs">
-                              Encuesta: {p.numero_encuesta ?? "—"}
-                            </Badge>
+                            {isSurveyProspect(p) ? (
+                              <Badge variant="outline" className="text-[11px] sm:text-xs">
+                                Encuesta: {p.numero_encuesta ?? "—"}
+                              </Badge>
+                            ) : null}
                             <ProspectStatusBadge prospect={p} />
                             <ProspectTreatmentBadge prospect={p} />
 
@@ -924,9 +926,11 @@ const renderSeguimientoSection = (
   <Badge variant="secondary" className="max-w-[320px] truncate">
     {formatProspectPhone(selectedDetailProspect ?? selected)}
   </Badge>
-  <Badge variant="outline" className="text-xs">
-    Encuesta: {selectedDetailProspect?.numero_encuesta ?? selected.numero_encuesta ?? "—"}
-  </Badge>
+  {isSurveyProspect(selectedDetailProspect ?? selected) ? (
+    <Badge variant="outline" className="text-xs">
+      Encuesta: {selectedDetailProspect?.numero_encuesta ?? selected.numero_encuesta ?? "—"}
+    </Badge>
+  ) : null}
   <ProspectStatusBadge prospect={selectedDetailProspect ?? selected} />
   <ProspectTreatmentBadge prospect={selectedDetailProspect ?? selected} />
   <Badge variant="outline" className="text-xs">

@@ -29,7 +29,7 @@ import { ProspectStatusBadge } from "./prospect-status-badge"
 import { ProspectTreatmentBadge } from "./prospect-treatment-badge"
 import { ProspectDocumentsPanel } from "./prospect-documents-panel"
 import { getAppointmentGoogleMapsUrl } from "@/components/citas/appointment-location-picker"
-import { formatProspectPhone } from "@/lib/prospect"
+import { formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 
 type ProspectoBase = {
   id: number
@@ -373,12 +373,14 @@ export function ProspectoDetailDialog({
                           </div>
                         </div>
 
-                        <div>
-                          <div className="text-xs text-muted-foreground">Número de encuesta</div>
-                          <div className="font-medium mt-1">{p.numero_encuesta ?? "—"}</div>
-                        </div>
+                        {isSurveyProspect(p) ? (
+                          <div>
+                            <div className="text-xs text-muted-foreground">Número de encuesta</div>
+                            <div className="font-medium mt-1">{p.numero_encuesta ?? "—"}</div>
+                          </div>
+                        ) : null}
 
-                        {p.forma_obtencion_tipo === "encuesta" && (
+                        {isSurveyProspect(p) && (
                           <div>
                             <div className="text-xs text-muted-foreground">Trato del prospecto</div>
                             <div className="mt-1">
@@ -493,7 +495,10 @@ export function ProspectoDetailDialog({
                               <div className="min-w-0">
                                 <div className="font-medium truncate">{detail.resumen.recomendado_por.nombre}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {formatProspectPhone(detail.resumen.recomendado_por)} · Encuesta: {detail.resumen.recomendado_por.numero_encuesta ?? "—"}
+                                  {formatProspectPhone(detail.resumen.recomendado_por)}
+                                  {isSurveyProspect(detail.resumen.recomendado_por)
+                                    ? ` · Encuesta: ${detail.resumen.recomendado_por.numero_encuesta ?? "—"}`
+                                    : ""}
                                 </div>
                               </div>
                               <Badge variant="secondary" className="w-fit">
@@ -526,7 +531,8 @@ export function ProspectoDetailDialog({
                                   <div className="min-w-0">
                                     <div className="font-medium truncate">{r.nombre}</div>
                                     <div className="text-xs text-muted-foreground">
-                                      {formatProspectPhone(r)} · Encuesta: {r.numero_encuesta ?? "—"}
+                                      {formatProspectPhone(r)}
+                                      {isSurveyProspect(r) ? ` · Encuesta: ${r.numero_encuesta ?? "—"}` : ""}
                                     </div>
                                   </div>
                                   <Badge variant="secondary" className="w-fit">

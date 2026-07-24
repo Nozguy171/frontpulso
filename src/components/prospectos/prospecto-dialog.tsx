@@ -24,7 +24,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Frown, Meh, Smile } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
-import { formatProspectPhone } from "@/lib/prospect"
+import { formatProspectPhone, isSurveyProspect } from "@/lib/prospect"
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
 type Colaborador = {
@@ -683,8 +683,11 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                     <div className="min-w-0">
                       <div className="font-medium truncate">{recoSelected.nombre}</div>
                       <div className="text-xs text-muted-foreground font-mono truncate">
-                        {formatProspectPhone(recoSelected)} • Encuesta:{" "}
-                        {recoSelected.numero_encuesta ?? "—"} • ID {recoSelected.id}
+                        {formatProspectPhone(recoSelected)}
+                        {isSurveyProspect(recoSelected)
+                          ? ` • Encuesta: ${recoSelected.numero_encuesta ?? "—"}`
+                          : ""}{" "}
+                        • ID {recoSelected.id}
                       </div>
                       <ProspectTreatmentBadge prospect={recoSelected} className="mt-2" />
                     </div>
@@ -725,7 +728,8 @@ export function ProspectoDialog({ open, onOpenChange, onSubmit }: ProspectoDialo
                             >
                               <div className="font-medium">{p.nombre}</div>
                               <div className="font-mono text-xs text-muted-foreground">
-                                {formatProspectPhone(p)} • Encuesta: {p.numero_encuesta ?? "—"}{" "}
+                                {formatProspectPhone(p)}
+                                {isSurveyProspect(p) ? ` • Encuesta: ${p.numero_encuesta ?? "—"}` : ""}{" "}
                                 • ID {p.id}
                               </div>
                               <ProspectTreatmentBadge prospect={p} className="mt-2" />
