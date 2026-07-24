@@ -22,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   FileText,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -107,7 +108,13 @@ function normalizeRoleLabel(role?: string | null) {
   return role || "—"
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function Sidebar({
+  onNavigate,
+  onClose,
+}: {
+  onNavigate?: () => void
+  onClose?: () => void
+}) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -275,18 +282,32 @@ const clearActing = () => {
   const ActingIcon = actingLine?.icon
 
   return (
-    <aside className="w-full md:w-72 border-r border-sidebar-border bg-sidebar flex flex-col h-[100dvh]">
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar md:w-72">
       {/* Top */}
-      <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-            <Activity className="relative h-9 w-9 text-primary" strokeWidth={2.5} />
+      <div className="shrink-0 border-b border-sidebar-border p-5 md:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl" />
+              <Activity className="relative h-9 w-9 text-primary" strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold tracking-tight text-sidebar-foreground">Pulso</h1>
+              <p className="text-xs text-muted-foreground">CRM Profesional</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-sidebar-foreground tracking-tight">Pulso</h1>
-            <p className="text-xs text-muted-foreground">CRM Profesional</p>
-          </div>
+          {onClose ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Cerrar menú"
+              onClick={onClose}
+              className="rounded-full border border-sidebar-border bg-sidebar-accent/40 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -319,7 +340,7 @@ const clearActing = () => {
       </nav>
 
       {/* Bottom */}
-      <div className="p-4 border-t border-sidebar-border space-y-3">
+      <div className="shrink-0 space-y-3 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
           <p className="text-xs text-muted-foreground mb-1">Usuario</p>
 

@@ -799,6 +799,7 @@ export function ProspectoDetailDialog({
       }
       onActionCompleted?.(updated)
     }}
+    onViewProspect={() => setOpenActions(false)}
   />
 )}
     </>

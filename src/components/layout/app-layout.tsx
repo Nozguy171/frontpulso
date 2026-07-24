@@ -8,12 +8,10 @@ import {
   Dialog,
   DialogContent,
   DialogTrigger,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Menu } from "lucide-react"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 interface AppLayoutProps {
   children: ReactNode
@@ -25,7 +23,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-[100dvh] bg-background">
       {/* Desktop sidebar */}
-      <div className="hidden md:flex shrink-0">
+      <div className="hidden h-full shrink-0 md:flex">
         <Sidebar />
       </div>
 
@@ -40,17 +38,18 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="left-0 top-0 h-[100dvh] max-h-none w-72 max-w-[85vw] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-r p-0">
-                <DialogHeader>
-                  <VisuallyHidden>
-                    <DialogTitle>Menú principal</DialogTitle>
-                  </VisuallyHidden>
-                  <VisuallyHidden>
-                    <DialogDescription>Navegación del sistema Pulso</DialogDescription>
-                  </VisuallyHidden>
-                </DialogHeader>
-
-                <Sidebar onNavigate={() => setOpen(false)} />
+              <DialogContent
+                showCloseButton={false}
+                className="left-0 top-0 h-[100dvh] max-h-none w-72 max-w-[88vw] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl sm:w-72 sm:max-w-[88vw] sm:p-0"
+              >
+                <DialogTitle className="sr-only">Menú principal</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Navegación del sistema Pulso
+                </DialogDescription>
+                <Sidebar
+                  onNavigate={() => setOpen(false)}
+                  onClose={() => setOpen(false)}
+                />
               </DialogContent>
             </Dialog>
 

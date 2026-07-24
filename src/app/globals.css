@@ -291,6 +291,24 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+
+  @media (max-width: 767px) {
+    .scrollbar-thin {
+      scrollbar-color: color-mix(in srgb, var(--primary) 65%, transparent) transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      border: 0;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--primary) 65%, transparent);
+    }
+  }
 }
 
 .picker-dark-clean {

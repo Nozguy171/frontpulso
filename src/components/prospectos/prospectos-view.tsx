@@ -480,6 +480,10 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
       loadProspects()
       setSelectedProspecto(null)
     }}
+    onViewProspect={(prospecto) => {
+      setSelectedProspecto(null)
+      setDetailProspecto(prospecto)
+    }}
   />
 )}
     </>

@@ -24,17 +24,9 @@ import { AppointmentLocationPicker } from "@/components/citas/appointment-locati
 import { formatProspectPhone, getLastAppointmentLocation } from "@/lib/prospect"
 import { ProspectTreatmentBadge } from "@/components/prospectos/prospect-treatment-badge"
 
-import { Calendar as CalendarIcon, Phone, XCircle, Users, FileText, Clock, X } from "lucide-react"
+import { Calendar as CalendarIcon, ChevronDown, Phone, X, XCircle, Users, FileText, Clock } from "lucide-react"
 
 import { API_BASE_URL } from "@/lib/api"
-
-interface ProspectoActionsDialogProps {
-  prospecto: any
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onActionCompleted?: (updated: any) => void
-  mode?: "full" | "search"
-}
 
 type ProspectoMini = {
   id: number
@@ -45,6 +37,25 @@ type ProspectoMini = {
   numero_encuesta?: string | null
   trato_prospecto?: "enojado" | "feliz" | "neutral" | null
   estado?: string | null
+}
+
+type ProspectoAction = ProspectoMini & {
+  estado: string
+  observaciones?: string | null
+  forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
+  forma_obtencion?: string | null
+  venta_monto_sin_iva?: number | null
+  ultima_ubicacion_cita?: string | null
+  ultima_ubicacion_cita_lat?: number | null
+  ultima_ubicacion_cita_lng?: number | null
+}
+
+interface ProspectoActionsDialogProps {
+  prospecto: ProspectoAction
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onActionCompleted?: (updated: ProspectoAction) => void
+  onViewProspect?: (prospecto: ProspectoAction) => void
 }
 
 type AmigosResponse = {
@@ -64,7 +75,7 @@ function formatFechaBonita(d?: Date) {
 function openNativePicker(ref: React.RefObject<HTMLInputElement | null>) {
   const el = ref.current
   if (!el) return
-  ;(el as any).showPicker?.()
+  el.showPicker?.()
   el.focus()
 }
 function toYMD(d: Date) {
@@ -87,7 +98,7 @@ export function ProspectoActionsDialog({
   open,
   onOpenChange,
   onActionCompleted,
-  mode = "full",
+  onViewProspect,
 }: ProspectoActionsDialogProps) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
 
@@ -127,6 +138,10 @@ const llamadaAmigoTimeInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const disabled = loadingAction !== null
   const hasVenta = Number(prospecto?.venta_monto_sin_iva ?? 0) > 0
+  const prospectNotes = (prospecto.observaciones ?? "")
+    .split(/\r?\n/)
+    .map((note) => note.trim())
+    .filter(Boolean)
   const openCitaModal = () => {
     const last = getLastAppointmentLocation(prospecto)
     setCitaFecha(undefined)
@@ -137,6 +152,11 @@ const llamadaAmigoTimeInputRef = React.useRef<HTMLInputElement | null>(null)
     setCitaObs("")
     setOpenCita(true)
   }
+  const handleViewProspect = () => {
+    setOpenCita(false)
+    onOpenChange(false)
+    onViewProspect?.(prospecto)
+  }
   const openProgramarLlamadaPara = (p: ProspectoMini) => {
   setTargetAmigo(p)
   setLlamadaFecha(undefined)
@@ -146,7 +166,7 @@ const llamadaAmigoTimeInputRef = React.useRef<HTMLInputElement | null>(null)
 }
 const callAction = async (
   accion: string,
-  extra: any = {},
+  extra: Record<string, unknown> = {},
   targetProspectId?: number
 ) => {
   setLoadingAction(accion)
@@ -340,7 +360,7 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
           },
         })
 
-        const data = (await res.json()) as any
+        const data = (await res.json()) as Partial<AmigosResponse> & { message?: string }
         if (!res.ok) throw new Error(data?.message ?? "Error cargando amigos")
 
         if (!alive) return
@@ -368,13 +388,14 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
       {/* Dialog principal de acciones (RESPONSIVE) */}
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
+          showCloseButton={false}
           className="
             flex h-[calc(100dvh-1rem)] max-h-[36rem] w-[95vw] max-w-none flex-col
             overflow-hidden p-0 sm:max-w-[420px]
           "
         >
           <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur">
-            <div className="flex items-start justify-between gap-3 p-4 sm:p-6">
+            <div className="relative p-4 pr-14 sm:p-6 sm:pr-16">
               <div className="min-w-0">
                 <DialogHeader className="space-y-1">
                   <DialogTitle className="text-lg sm:text-xl truncate">
@@ -386,14 +407,13 @@ const handleSubmitLlamadaAmigo = async (e: React.FormEvent) => {
                   <ProspectTreatmentBadge prospect={prospecto} />
                 </DialogHeader>
               </div>
-
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 aria-label="Cerrar"
                 onClick={() => onOpenChange(false)}
-                className="shrink-0"
+                className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -727,10 +747,76 @@ amigosData!.recomendados.map((p) => (
       {/* Modal: Agendar cita (RESPONSIVE) */}
       <Dialog open={openCita} onOpenChange={setOpenCita}>
         <DialogContent className="w-[95vw] max-w-none sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">
-              Agendar cita con {prospecto.nombre}
-            </DialogTitle>
+          <DialogHeader className="gap-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+              <DialogTitle className="min-w-0 text-lg sm:text-xl">
+                Agendar cita con {prospecto.nombre}
+              </DialogTitle>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto shrink-0 p-0 text-xs sm:text-sm"
+                onClick={handleViewProspect}
+              >
+                Ver prospecto
+              </Button>
+            </div>
+            <DialogDescription asChild>
+              <div className="min-w-0 space-y-2 text-sm text-foreground">
+                <details className="group min-w-0 overflow-hidden rounded-md border bg-muted/30">
+                  <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 p-3 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="rounded-full bg-primary/10 p-2 text-primary">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className="font-medium">Observaciones</div>
+                        <div className="text-xs text-muted-foreground">
+                          {prospectNotes.length === 0
+                            ? "Sin observaciones"
+                            : `${prospectNotes.length} ${
+                                prospectNotes.length === 1 ? "observación" : "observaciones"
+                              } · Toca para ver`}
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="max-h-48 min-w-0 space-y-2 overflow-y-auto border-t p-3">
+                    {prospectNotes.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">Sin observaciones.</div>
+                    ) : (
+                      prospectNotes.map((note, index) => (
+                        <div key={index} className="rounded-md border bg-background p-3">
+                          <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+                              {index + 1}
+                            </span>
+                            Observación {index + 1}
+                          </div>
+                          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {note}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </details>
+                <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+                  <div>
+                    <span className="font-medium">Forma de obtención:</span>{" "}
+                    {prospecto.forma_obtencion || "—"}
+                  </div>
+                  {prospecto.forma_obtencion_tipo === "encuesta" ? (
+                    <div>
+                      <span className="font-medium">Encuesta:</span>{" "}
+                      {prospecto.numero_encuesta || "—"}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </DialogDescription>
             <ProspectTreatmentBadge prospect={prospecto} />
           </DialogHeader>
 
