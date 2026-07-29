@@ -42,6 +42,8 @@ type ProspectoMini = {
 type ProspectoAction = ProspectoMini & {
   estado: string
   observaciones?: string | null
+  recomendado_por_id?: number | null
+  recomendado_por_nombre?: string | null
   forma_obtencion_tipo?: "encuesta" | "referido" | "cita_en_frio" | "otro" | null
   forma_obtencion?: string | null
   venta_monto_sin_iva?: number | null
@@ -816,8 +818,14 @@ amigosData!.recomendados.map((p) => (
                   </div>
                   {isSurveyProspect(prospecto) ? (
                     <div>
-                      <span className="font-medium">Encuesta:</span>{" "}
+                      <span className="font-medium">Número de encuesta:</span>{" "}
                       {prospecto.numero_encuesta || "—"}
+                    </div>
+                  ) : prospecto.forma_obtencion_tipo === "referido" ||
+                    prospecto.recomendado_por_nombre ? (
+                    <div>
+                      <span className="font-medium">Recomendado por:</span>{" "}
+                      {prospecto.recomendado_por_nombre || "—"}
                     </div>
                   ) : null}
                 </div>

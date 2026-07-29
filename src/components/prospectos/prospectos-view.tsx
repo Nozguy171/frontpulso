@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon, UserCheck, DollarSign } from "lucide-react"
+import { Search, Plus, MoreVertical, User, PhoneIcon, UsersIcon, UserCheck, DollarSign, ArrowDownUp } from "lucide-react"
 import { ProspectoDialog } from "./prospecto-dialog"
 import { ProspectoActionsDialog } from "./prospecto-action-dialog"
 import { ProspectosGlobalSearch } from "./prospectos-global-search"
@@ -68,6 +68,7 @@ export function ProspectosView() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null)
   const [activeTab, setActiveTab] = useState<"pendientes" | "sinRespuesta">("pendientes")
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
 const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   const [prospectosPendientes, setProspectosPendientes] = useState<Prospecto[]>([])
   const [prospectosSinRespuesta, setProspectosSinRespuesta] = useState<Prospecto[]>([])
@@ -100,7 +101,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
 
     const text = await res.text()
 
-    let data: any = {}
+    let data: { message?: string; prospectos?: Prospecto[] } = {}
     try {
       data = text ? JSON.parse(text) : {}
     } catch (e) {
@@ -125,7 +126,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
 
     const text = await res.text()
 
-    let data: any = {}
+    let data: ({ message?: string; stats?: Partial<ProspectStats> } & Partial<ProspectStats>) = {}
     try {
       data = text ? JSON.parse(text) : {}
     } catch (e) {
@@ -212,6 +213,11 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
   }
 
   const prospectos = activeTab === "pendientes" ? prospectosPendientes : prospectosSinRespuesta
+  const sortedProspectos = [...prospectos].sort((a, b) => {
+    const dateDiff = (Date.parse(a.created_at ?? "") || 0) - (Date.parse(b.created_at ?? "") || 0)
+    const diff = dateDiff || a.id - b.id
+    return sortOrder === "oldest" ? diff : -diff
+  })
 
   return (
     <>
@@ -326,7 +332,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
         </Card>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
           <Button
             variant={activeTab === "pendientes" ? "default" : "outline"}
             onClick={() => setActiveTab("pendientes")}
@@ -347,6 +353,21 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
             <Badge variant="secondary" className="ml-2">
               {stats?.sin_respuesta ?? prospectosSinRespuesta.length}
             </Badge>
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => setSortOrder((current) => current === "newest" ? "oldest" : "newest")}
+            className="ml-auto h-10 shrink-0 px-3 sm:px-4"
+            aria-label={`Orden actual: ${sortOrder === "newest" ? "más nuevos" : "más viejos"}`}
+          >
+            <ArrowDownUp className="mr-1.5 h-4 w-4 sm:mr-2" />
+            <span className="sm:hidden">
+              {sortOrder === "newest" ? "Nuevos" : "Viejos"}
+            </span>
+            <span className="hidden sm:inline">
+              {sortOrder === "newest" ? "Más nuevos" : "Más viejos"}
+            </span>
           </Button>
         </div>
 
@@ -374,7 +395,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
               </CardContent>
             </Card>
           ) : (
-            prospectos.map((prospecto) => (
+            sortedProspectos.map((prospecto) => (
               <Card
                 key={prospecto.id}
                 className="
