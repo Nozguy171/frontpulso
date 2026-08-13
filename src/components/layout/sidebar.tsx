@@ -22,6 +22,8 @@ import {
   Settings,
   ShieldCheck,
   FileText,
+  LayoutTemplate,
+  MonitorCog,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -56,6 +58,8 @@ const themes = [
   { id: "royal-ivory", label: "Rey marfil", colors: ["#946b24", "#183b6b", "#0f766e", "#be123c", "#f6efdf"] },
 ]
 const themeIds = themes.map((item) => item.id)
+const UI_VERSION_KEY = "pulso_ui_version"
+type UiVersion = "classic" | "new"
 
 type MeUser = {
   id: number
@@ -125,6 +129,7 @@ export function Sidebar({
   const [actingEmail, setActingEmail] = useState<string>("")
   const [loadingActing, setLoadingActing] = useState(false)
   const [theme, setTheme] = useState("")
+  const [uiVersion, setUiVersion] = useState<UiVersion>("classic")
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -140,7 +145,9 @@ export function Sidebar({
 
   const logout = () => {
     try {
+      const savedUiVersion = localStorage.getItem(UI_VERSION_KEY)
       localStorage.clear()
+      if (savedUiVersion) localStorage.setItem(UI_VERSION_KEY, savedUiVersion)
     } catch {}
     router.push("/")
   }
@@ -151,6 +158,13 @@ export function Sidebar({
     document.body.dataset.theme = next
     if (remember) localStorage.setItem("pulso_theme", next)
     setTheme(next)
+  }
+
+  const applyUiVersion = (value: UiVersion) => {
+    document.documentElement.dataset.uiVersion = value
+    document.body.dataset.uiVersion = value
+    localStorage.setItem(UI_VERSION_KEY, value)
+    setUiVersion(value)
   }
 
 const saveSettings = async (event: FormEvent) => {
@@ -213,6 +227,7 @@ const clearActing = () => {
 
   useEffect(() => {
     applyTheme(localStorage.getItem("pulso_theme") || DEFAULT_THEME, false)
+    applyUiVersion(localStorage.getItem(UI_VERSION_KEY) === "new" ? "new" : "classic")
   }, [])
 
   useEffect(() => {
@@ -282,12 +297,12 @@ const clearActing = () => {
   const ActingIcon = actingLine?.icon
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar md:w-72">
+    <aside className="pulso-sidebar flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar md:w-72">
       {/* Top */}
-      <div className="shrink-0 border-b border-sidebar-border p-5 md:p-6">
+      <div className="pulso-sidebar-header shrink-0 border-b border-sidebar-border p-5 md:p-6">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative">
+          <div className="pulso-brand flex min-w-0 items-center gap-3">
+            <div className="pulso-brand-mark relative">
               <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl" />
               <Activity className="relative h-9 w-9 text-primary" strokeWidth={2.5} />
             </div>
@@ -312,7 +327,7 @@ const clearActing = () => {
       </div>
 
       {/* Nav */}
-      <nav className="scrollbar-thin min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-4">
+      <nav aria-label="Navegación principal" className="pulso-nav scrollbar-thin min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-4">
         {menuItems.map((item) => {
           if (item.leaderOnly && !isLeader) return null
           if (item.adminOnly && (!PULSO_ADMIN_ENABLED || !me?.is_platform_admin)) return null
@@ -323,6 +338,7 @@ const clearActing = () => {
           return (
             <Link key={item.href} href={item.href} onClick={() => onNavigate?.()}>
               <Button
+                data-active={isActive ? "true" : "false"}
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
                   "w-full justify-start gap-3 h-11 text-[15px] font-medium transition-all",
@@ -340,8 +356,8 @@ const clearActing = () => {
       </nav>
 
       {/* Bottom */}
-      <div className="shrink-0 space-y-3 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
+      <div className="pulso-sidebar-footer shrink-0 space-y-3 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="pulso-user-card px-3 py-2 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
           <p className="text-xs text-muted-foreground mb-1">Usuario</p>
 
           <p className="text-sm font-semibold text-sidebar-foreground truncate">
@@ -385,10 +401,44 @@ const clearActing = () => {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Ajustes</DialogTitle>
-              <DialogDescription>Estilo y contraseña de esta cuenta.</DialogDescription>
+              <DialogDescription>Diseño, estilo y contraseña de esta cuenta.</DialogDescription>
             </DialogHeader>
 
             <form className="space-y-5" onSubmit={saveSettings} autoComplete="off">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <MonitorCog className="h-4 w-4" />
+                  Experiencia visual
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border bg-muted/30 p-1.5" role="group" aria-label="Experiencia visual">
+                  <button
+                    type="button"
+                    aria-pressed={uiVersion === "classic"}
+                    onClick={() => applyUiVersion("classic")}
+                    className={cn(
+                      "flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
+                      uiVersion === "classic" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <LayoutTemplate className="h-4 w-4" />
+                    Diseño clásico
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={uiVersion === "new"}
+                    onClick={() => applyUiVersion("new")}
+                    className={cn(
+                      "flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
+                      uiVersion === "new" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Activity className="h-4 w-4" />
+                    Diseño nuevo
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">El cambio es inmediato y conserva todas tus funciones y datos.</p>
+              </div>
+
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Palette className="h-4 w-4" />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { CalendarIcon, MapPin, MoreVertical, Clock, StickyNote, X } from "lucide-react"
+import { CalendarIcon, MapPin, MoreVertical, Clock, PlayCircle, StickyNote, X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { API_BASE_URL } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -316,14 +316,16 @@ function CitaActionsMenu({
   allowDoneAction = true,
   allowScheduleActions = true,
   allowSaleAction = true,
+  allowFollowupAction = false,
 }: {
   onAction?: (
-    action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones"
+    action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "iniciar_seguimiento" | "rechazado" | "observaciones"
   ) => void
   allowRejectLike?: boolean
   allowDoneAction?: boolean
   allowScheduleActions?: boolean
   allowSaleAction?: boolean
+  allowFollowupAction?: boolean
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
@@ -376,6 +378,16 @@ function CitaActionsMenu({
             Marcar vendido
           </DropdownMenuItem> : null}
 
+          {allowFollowupAction ? <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              onAction?.("iniciar_seguimiento")
+            }}
+          >
+            <PlayCircle className="mr-2 h-4 w-4" />
+            Iniciar seguimiento
+          </DropdownMenuItem> : null}
+
           {allowRejectLike ? (
             <DropdownMenuItem
               onSelect={(e) => {
@@ -409,6 +421,7 @@ type ActionState =
   | { type: "reagendar"; cita: CitaDTO }
   | { type: "programar_llamada"; cita: CitaDTO }
   | { type: "vendido"; cita: CitaDTO }
+  | { type: "iniciar_seguimiento"; cita: CitaDTO }
   | { type: "rechazado"; cita: CitaDTO }
   | { type: "observaciones"; cita: CitaDTO }
 
@@ -613,12 +626,12 @@ const refreshAll = async () => {
 }
 
 const onCitaAction = (
-  action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "rechazado" | "observaciones",
+  action: "marcar_realizada" | "reagendar" | "programar_llamada" | "vendido" | "iniciar_seguimiento" | "rechazado" | "observaciones",
   cita: CitaDTO
 ) => {
     if (!cita?.prospect?.id) return
     const estadoCita = (cita.estado || "").toLowerCase()
-    if (estadoCita !== "programada" && !(["realizada", "vendida"].includes(estadoCita) && ["vendido", "observaciones"].includes(action))) return
+    if (estadoCita !== "programada" && !(["realizada", "vendida"].includes(estadoCita) && ["vendido", "iniciar_seguimiento", "observaciones"].includes(action))) return
 
     if (isSoldLikeAppointment(cita) && action === "rechazado") {
       alert("Este prospecto ya tiene una venta registrada.")
@@ -660,6 +673,12 @@ if (action === "programar_llamada") {
   setActionOpen({ type: "programar_llamada", cita })
   return
 }
+    if (action === "iniciar_seguimiento") {
+      setFormSeguimientoDia(String(new Date(cita.fecha_hora).getDate()))
+      setFormSeguimientoHora(currentHM())
+      setActionOpen({ type: "iniciar_seguimiento", cita })
+      return
+    }
     if (action === "observaciones") {
       // ✅ append: nota nueva
       setFormObs("")
@@ -721,6 +740,19 @@ if (actionOpen.type === "programar_llamada") {
     fecha: formFecha,
     hora: formHora,
     observaciones: formObs?.trim() || null,
+  })
+}
+if (actionOpen.type === "iniciar_seguimiento") {
+  if (!formSeguimientoDia || !formSeguimientoHora) {
+    alert("Día y hora son obligatorios para iniciar/reanudar seguimiento")
+    return
+  }
+
+  await apiPost(`/prospects/${prospectId}/acciones`, {
+    accion: "iniciar_seguimiento",
+    appointment_id: actionOpen.cita.id,
+    dia: formSeguimientoDia,
+    hora: formSeguimientoHora,
   })
 }
 if (actionOpen.type === "vendido") {
@@ -1011,6 +1043,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
                   allowDoneAction={false}
                   allowScheduleActions={cita.estado === "programada"}
                   allowSaleAction
+                  allowFollowupAction={canStartOrResumeFollowup(cita.prospect)}
                   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
                   onAction={(a) => onCitaAction(a, cita)}
                 />
@@ -1150,6 +1183,7 @@ const statusStyles = getCitaStatusVisual(cita.estado)
   allowDoneAction={false}
   allowScheduleActions={cita.estado === "programada"}
   allowSaleAction
+  allowFollowupAction={canStartOrResumeFollowup(cita.prospect)}
   allowRejectLike={cita.estado === "programada" && !isSoldLikeAppointment(cita)}
   onAction={(a) => onCitaAction(a, cita)}
 /> : null}
@@ -1204,9 +1238,10 @@ const statusStyles = getCitaStatusVisual(cita.estado)
       {/* ✅ MODAL DETALLE (FULL RESPONSIVE + SCROLL + HISTORIAL /history) */}
       <Dialog open={!!openCitaId} onOpenChange={(v) => !v && setOpenCitaId(null)}>
         <DialogContent
+          showCloseButton={false}
           className="
-            flex h-[88dvh] w-[96vw] max-w-2xl flex-col
-            overflow-hidden p-0 sm:w-full sm:h-[80dvh] lg:h-[78dvh]
+            pulso-detail-dialog flex h-[88dvh] w-[96vw] max-w-none flex-col
+            overflow-hidden p-0 sm:h-[80dvh] sm:w-[calc(100vw-2rem)] sm:max-w-[760px] lg:h-[78dvh]
             rounded-xl
           "
         >
@@ -1411,6 +1446,8 @@ const statusStyles = getCitaStatusVisual(cita.estado)
     ? "Programar llamada"
     : actionOpen?.type === "vendido"
     ? "Marcar vendido"
+    : actionOpen?.type === "iniciar_seguimiento"
+    ? actionOpen.cita.prospect?.seguimiento_pausado ? "Reanudar seguimiento" : "Iniciar seguimiento"
     : actionOpen?.type === "rechazado"
     ? "Marcar rechazado"
     : "Agregar observaciones"}
@@ -1465,6 +1502,33 @@ const statusStyles = getCitaStatusVisual(cita.estado)
       </div>
     ) : null}
   </>
+) : null}
+{actionOpen?.type === "iniciar_seguimiento" ? (
+  <div className="grid gap-3 rounded-md border p-3">
+    <div className="text-sm text-muted-foreground">
+      La cita se marcará como realizada y se crearán los recordatorios mensuales desde el próximo mes.
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Día del mes</div>
+        <Input
+          type="number"
+          min={1}
+          max={31}
+          value={formSeguimientoDia}
+          onChange={(e) => setFormSeguimientoDia(e.target.value)}
+        />
+      </div>
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">Hora</div>
+        <Input
+          type="time"
+          value={formSeguimientoHora}
+          onChange={(e) => setFormSeguimientoHora(e.target.value)}
+        />
+      </div>
+    </div>
+  </div>
 ) : null}
 {actionOpen?.type === "reagendar" || actionOpen?.type === "programar_llamada" ? (
   <>

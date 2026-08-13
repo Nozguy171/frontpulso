@@ -825,7 +825,7 @@ export function EstadisticasView() {
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[42rem] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogContent className="pulso-detail-dialog flex h-[calc(100dvh-1rem)] max-h-[42rem] flex-col overflow-hidden sm:max-w-2xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{detailTitle}</DialogTitle>
           </DialogHeader>

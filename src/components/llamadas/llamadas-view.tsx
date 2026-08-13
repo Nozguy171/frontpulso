@@ -1499,9 +1499,10 @@ const llamadasListFiltradas = useMemo(() => {
       {/* ✅ MODAL DETALLE (SCROLL SIEMPRE) */}
       <Dialog open={!!openLlamadaId} onOpenChange={(v) => !v && setOpenLlamadaId(null)}>
         <DialogContent
+          showCloseButton={false}
           className="
-            flex h-[88dvh] w-[96vw] max-w-2xl flex-col
-            overflow-hidden p-0 sm:w-full sm:h-[80dvh] lg:h-[78dvh]
+            pulso-detail-dialog flex h-[88dvh] w-[96vw] max-w-none flex-col
+            overflow-hidden p-0 sm:h-[80dvh] sm:w-[calc(100vw-2rem)] sm:max-w-[760px] lg:h-[78dvh]
             rounded-xl
           "
         >

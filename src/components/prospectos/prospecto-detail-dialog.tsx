@@ -300,7 +300,7 @@ export function ProspectoDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-[820px]">
+        <DialogContent className="pulso-detail-dialog pulso-detail-dialog-wide flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-[920px]">
           <div className="shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex flex-col gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

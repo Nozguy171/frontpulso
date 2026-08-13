@@ -708,6 +708,17 @@ const renderSeguimientoSection = (
                                 <StickyNote className="h-4 w-4 mr-2" />
                                 Agregar observación
                               </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                disabled={saving}
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  openVenta(p)
+                                }}
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Marcar venta
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -892,10 +903,10 @@ const renderSeguimientoSection = (
       <Dialog open={!!openProspectId} onOpenChange={(v) => !v && setOpenProspectId(null)}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="p-0 overflow-hidden w-[min(980px,96vw)] h-[85vh] max-h-[85vh] rounded-xl flex flex-col"
+          className="pulso-detail-dialog pulso-detail-dialog-wide flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[calc(100vw-1rem)] max-w-none flex-col overflow-hidden rounded-xl p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[1060px]"
         >
           {/* header */}
-          <div className="shrink-0 bg-background/95 backdrop-blur border-b">
+          <div className="pulso-detail-header shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex items-start sm:items-center justify-between gap-3 p-5 sm:p-6">
               <DialogHeader className="space-y-1 min-w-0">
                 <DialogTitle className="text-lg sm:text-xl truncate">Detalle del cliente</DialogTitle>
@@ -909,13 +920,13 @@ const renderSeguimientoSection = (
           {/* body scrolls */}
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full">
-              <div className="p-5 sm:p-6">
+              <div className="pulso-detail-body p-4 sm:p-6">
                 {!selected ? (
                   <div className="text-sm text-muted-foreground">Cargando…</div>
                 ) : (
-                  <div className="space-y-5">
-                    <Card>
-                      <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="pulso-detail-stack space-y-4 sm:space-y-5">
+                    <Card className="pulso-detail-summary">
+                      <CardContent className="space-y-4 p-5 sm:p-6 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,1fr)] lg:items-center lg:gap-5 lg:space-y-0">
                         <div className="flex flex-col gap-2">
                           <div className="text-xs text-muted-foreground">Cliente</div>
                           <div className="font-semibold text-2xl truncate">
@@ -992,7 +1003,7 @@ const renderSeguimientoSection = (
                         </div>
                       </CardContent>
                     </Card>
-<Card>
+<Card className="pulso-detail-section">
   <CardContent className="p-5 sm:p-6">
     <div className="flex items-center gap-2">
       <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1049,7 +1060,7 @@ const renderSeguimientoSection = (
   </CardContent>
 </Card>
 {selectedHasVenta && selected ? <ProspectDocumentsPanel prospectId={selected.id} /> : null}
-                    <Card>
+                    <Card className="pulso-detail-section">
                       <CardContent className="p-5 sm:p-6">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-2">
@@ -1107,7 +1118,7 @@ const renderSeguimientoSection = (
                     </Card>
 
                     {/* ✅ acciones + bloquear programar si seguimiento activo */}
-                    <div className="flex flex-wrap justify-end gap-2">
+                    <div className="pulso-detail-actions flex flex-wrap justify-end gap-2">
                       <Button
   variant="outline"
   onClick={() => iniciarSeguimiento(selected)}

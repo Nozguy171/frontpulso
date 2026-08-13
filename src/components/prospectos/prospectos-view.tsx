@@ -332,7 +332,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
         </Card>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+        <div data-pulso-layout="prospect-tabs" className="flex items-center gap-2 mb-4 sm:mb-6">
           <Button
             variant={activeTab === "pendientes" ? "default" : "outline"}
             onClick={() => setActiveTab("pendientes")}

@@ -241,7 +241,7 @@ export function AnexadosView() {
     <>
       <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Anexados</h1>
             <Badge variant="secondary" className="gap-1">
               <Shield className="h-3 w-3" />
@@ -334,7 +334,7 @@ export function AnexadosView() {
 
       {/* MODAL DETALLE */}
       <Dialog open={!!openId} onOpenChange={(v) => !v && setOpenId(null)}>
-        <DialogContent className="flex h-[88dvh] w-[96vw] max-w-2xl flex-col overflow-hidden rounded-xl p-0">
+        <DialogContent showCloseButton={false} className="pulso-detail-dialog flex h-[88dvh] w-[96vw] max-w-none flex-col overflow-hidden rounded-xl p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[760px]">
           <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur">
             <div className="flex items-center justify-between gap-2 p-4 sm:p-6">
               <DialogHeader className="space-y-1">

@@ -182,7 +182,7 @@ const [detailProspecto, setDetailProspecto] = useState<Prospecto | null>(null)
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
+        <DialogContent className="pulso-detail-dialog pulso-detail-dialog-wide flex h-[calc(100dvh-1rem)] max-h-[52rem] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-5xl">
           <div className="shrink-0 border-b p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Buscador general de prospectos</DialogTitle>

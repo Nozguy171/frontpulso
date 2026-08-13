@@ -366,8 +366,8 @@ forma_obtencion: p.forma_obtencion,
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="general">Movimientos Recientes</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
+            <TabsTrigger value="general" className="col-span-2 sm:col-span-1">Movimientos Recientes</TabsTrigger>
             <TabsTrigger value="prospecto">Por Prospecto</TabsTrigger>
             <TabsTrigger value="usuario">Por Usuario</TabsTrigger>
           </TabsList>
@@ -580,7 +580,7 @@ forma_obtencion: p.forma_obtencion,
       </div>
 
       <Dialog open={!!openProspectId} onOpenChange={(v) => !v && setOpenProspectId(null)}>
-        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogContent className="pulso-detail-dialog flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-3xl">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>
@@ -676,7 +676,7 @@ forma_obtencion: p.forma_obtencion,
       </Dialog>
 
       <Dialog open={!!openUserId} onOpenChange={(v) => !v && setOpenUserId(null)}>
-        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogContent className="pulso-detail-dialog flex h-[calc(100dvh-1rem)] max-h-[48rem] w-[95vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-3xl">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b p-4 sm:p-6">
               <DialogHeader>

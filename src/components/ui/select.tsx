@@ -55,6 +55,7 @@ function SelectContent({
   children,
   position = "popper",
   align = "center",
+  collisionPadding = 8,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -69,6 +70,7 @@ function SelectContent({
         )}
         position={position}
         align={align}
+        collisionPadding={collisionPadding}
         {...props}
       >
         <SelectScrollUpButton />
